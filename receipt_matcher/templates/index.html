@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}照合一覧{% endblock %}
+{% block main %}
+<div class="row"><h1>照合一覧</h1><div class="right"><a href="/new" class="btn btn-p">+ 新規照合</a></div></div>
+<div class="cards">
+  <div class="card stat"><div class="k">販売台帳(最終取込)</div>
+    {% if ledger_meta %}<div class="v">{{ ledger_meta.imported_at | replace('-', '/') }}</div><div class="d">有効 {{ f_amt(ledger_meta.loaded_rows) }}件(削除区分9を除く)</div>
+    {% else %}<div class="v warnv">未取込</div><div class="d"><a href="/ledger">販売台帳を取り込んでください</a></div>{% endif %}
+  </div>
+  <div class="card stat"><div class="k">受領レイアウト</div><div class="v">{{ layout_count }}件</div><div class="d">得意先割当 {{ assign_count }}件</div></div>
+  <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v {{ 'warnv' if unchecked_total[0] }}">{{ unchecked_total[0] }}件</div><div class="d">{{ unchecked_total[1] }}照合にまたがる</div></div>
+</div>
+<section class="card">
+  <form method="get" class="filters">
+    <label class="lbl">販売先
+      <select name="cust" class="fld"><option value="">すべて</option>
+      {% for c, n in customers %}<option value="{{ c }}" {{ 'selected' if c == cust }}>{{ c }} {{ n }}</option>{% endfor %}</select></label>
+    <label class="lbl">期間 From<input class="fld" name="date_from" value="{{ date_from }}" placeholder="YYYY/MM/DD"></label>
+    <label class="lbl">期間 To<input class="fld" name="date_to" value="{{ date_to }}" placeholder="YYYY/MM/DD"></label>
+    <label class="chk"><input type="checkbox" name="unchecked" value="1" {{ 'checked' if unchecked }}> 未確認の差異があるものだけ</label>
+    <button class="btn" type="submit">絞り込み</button>
+  </form>
+  <div class="tblwrap">
+  <table class="tbl">
+    <thead><tr><th>販売先</th><th>期間(取引日付)</th><th>照合日時</th><th>合計判定</th><th class="n">合計差異(金額)</th><th class="n">不一致(伝票別)</th><th class="n">未確認</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      {% set j = {'ok':('一致','b-ok'),'diff':('不一致','b-diff'),'sonly':('不一致','b-diff'),'ronly':('不一致','b-diff')}[r.total_judge or 'ok'] %}
+      <tr>
+        <td>{{ r.cust }} {{ r.cust_name or '' }}</td>
+        <td>{{ fmt_date(r.date_from) }}〜{{ fmt_date(r.date_to) }}</td>
+        <td>{{ (r.matched_at or r.created_at) | replace('-', '/') }}</td>
+        <td><span class="b {{ j[1] }}">{{ j[0] }}</span></td>
+        <td class="n">{{ signed(f_amt, r.total_diff_amt or 0) }}</td>
+        <td class="n">{{ r.slip_diff_rows or 0 }}</td>
+        <td class="n">{{ r.unchecked_rows or 0 }}</td>
+        <td><div class="row" style="gap:6px">
+          <a href="/matches/{{ r.id }}" class="btn btn-s">開く</a>
+          <a href="/matches/{{ r.id }}/report" class="btn btn-s">Excel出力</a>
+          <form method="post" action="/matches/{{ r.id }}/delete" class="inline" data-confirm="この照合を削除します。よろしいですか?"><button class="btn btn-s btn-danger" type="submit">削除</button></form>
+        </div></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="8" class="zero">照合はまだありません。「新規照合」から始めてください。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

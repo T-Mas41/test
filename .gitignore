@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+# 業務データ(PC内のみに保存。リポジトリに入れない)
+data/
+*.db
+*.db-wal
+*.db-shm
+demo_files/

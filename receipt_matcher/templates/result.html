@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}照合結果{% endblock %}
+{% macro dcell(fn, v) -%}<span class="{{ 'zero' if v == 0 else ('neg' if v < 0 else 'pos') }}">{{ signed(fn, v) }}</span>{%- endmacro %}
+{% block main %}
+{% set base = '/matches/%d' % m.id %}
+<div class="row">
+  <div>
+    <a href="/" class="sub">← 照合一覧</a>
+    <h1>照合結果:{{ m.cust }} {{ m.cust_name or '' }} ・ {{ fmt_date(m.date_from) }}〜{{ fmt_date(m.date_to) }}</h1>
+    <div class="sub">{{ m.sales_file }}({{ f_amt(t.s_rows) }}行) / {{ m.receipt_file }}({{ f_amt(t.r_rows) }}行・{{ m.layout_name }}) ・ 照合日時 {{ (m.matched_at or '') | replace('-', '/') }}</div>
+  </div>
+  <div class="right">
+    <a href="/new?parent={{ m.id }}" class="btn">再取込・再照合</a>
+    <a href="{{ base }}/report" class="btn btn-p">Excelレポート出力</a>
+  </div>
+</div>
+
+<section class="card" aria-label="合計の照合">
+  <div class="row" style="align-items:center;gap:20px">
+    <div style="min-width:140px"><div class="sub">合計の判定</div><span class="b {{ t.badge }} big">{{ t.judge_label }}</span></div>
+    <div class="tblwrap" style="flex:1 1 560px;border:0">
+      <table class="tbl" style="font-size:14px">
+        <thead><tr><th></th><th class="n">金額(税抜)</th><th class="n">数量</th><th class="n">重量(kg)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>売上(自社)</strong></td><td class="n">{{ f_amt(t.s[0]) }}</td><td class="n">{{ f_qty(t.s[1]) }}</td><td class="n">{{ f_wt(t.s[2]) }}</td></tr>
+          <tr><td><strong>受領(得意先)</strong></td><td class="n">{{ f_amt(t.r[0]) }}</td><td class="n">{{ f_qty(t.r[1]) }}</td><td class="n">{{ f_wt(t.r[2]) }}</td></tr>
+          <tr><td><strong>差異(売上−受領)</strong></td><td class="n">{{ dcell(f_amt, t.d[0]) }}</td><td class="n">{{ dcell(f_qty, t.d[1]) }}</td><td class="n">{{ dcell(f_wt, t.d[2]) }}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <nav class="tabs" aria-label="照合の切り口">
+    {% for k, v in VIEWS.items() %}
+      <a class="tab {{ 'on' if view == k }}" href="{{ base }}?view={{ k }}{{ '&only_diff=1' if only_diff }}{{ '&only_unc=1' if only_unc }}" {{ 'aria-current=page' if view == k }}>{{ v.label }} <span class="cnt {{ 'has' if counts[k] }}">{{ counts[k] }}</span></a>
+    {% endfor %}
+    <a class="tab {{ 'on' if view == 'warn' }}" href="{{ base }}?view=warn">変換警告 <span class="cnt {{ 'has' if counts.warn }}">{{ counts.warn }}</span></a>
+  </nav>
+  {% if view != 'warn' %}
+  {% set V = VIEWS[view] %}
+  <form method="get" class="bar">
+    <input type="hidden" name="view" value="{{ view }}">
+    <label class="chk"><input type="checkbox" name="only_diff" value="1" {{ 'checked' if only_diff }} class="js-autosubmit"> 不一致のみ表示</label>
+    <label class="chk"><input type="checkbox" name="only_unc" value="1" {{ 'checked' if only_unc }} class="js-autosubmit"> 未確認のみ表示</label>
+    <label class="chk">検索 <input type="search" name="q" value="{{ q }}" class="cin" placeholder="日付・番号・商品・コメント"></label>
+    <button type="submit" class="btn btn-s">表示</button>
+    <span class="legend"><span class="b b-diff">差異あり</span><span class="b b-s">自社のみ</span><span class="b b-r">受領のみ</span><span class="b b-ok">一致</span></span>
+  </form>
+  <div class="inner">
+    <table class="tbl compact">
+      <thead><tr>
+        <th>{{ V.k1 }}</th>{% if V.k2 %}<th>{{ V.k2 }}</th>{% endif %}
+        <th class="gs n">売上 金額</th><th class="gs n">売上 数量</th><th class="gs n">売上 重量</th>
+        <th class="gr n">受領 金額</th><th class="gr n">受領 数量</th><th class="gr n">受領 重量</th>
+        <th class="gd n">差異 金額</th><th class="gd n">差異 数量</th><th class="gd n">差異 重量</th>
+        <th>判定</th><th>確認済</th><th>コメント</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr class="{{ r.row_cls }} js-conf" data-url="{{ base }}/confirm-row" data-view="{{ view }}" data-key="{{ r.key_str }}">
+          <td><a href="{{ base }}/detail?view={{ view }}&key={{ quote(r.key_str) }}" title="明細を表示">{{ r.k1 }}</a></td>{% if V.k2 %}<td>{{ r.k2 }}</td>{% endif %}
+          {% for trip in (r.s, r.r) %}
+            {% if trip %}<td class="n">{{ f_amt(trip[0]) }}</td><td class="n">{{ f_qty(trip[1]) }}</td><td class="n">{{ f_wt(trip[2]) }}</td>
+            {% else %}<td class="n zero">—</td><td class="n zero">—</td><td class="n zero">—</td>{% endif %}
+          {% endfor %}
+          <td class="n">{{ dcell(f_amt, r.d[0]) }}</td><td class="n">{{ dcell(f_qty, r.d[1]) }}</td><td class="n">{{ dcell(f_wt, r.d[2]) }}</td>
+          <td><span class="b {{ r.badge }}" title="{{ r.judge_label }}">{{ r.judge_short }}</span></td>
+          <td style="text-align:center"><input type="checkbox" class="js-check" aria-label="確認済み" {{ 'checked' if r.checked }}></td>
+          <td class="cm"><input type="text" class="cin js-comment" aria-label="コメント" value="{{ r.comment }}" maxlength="1000"></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="16" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+{% if pages > 1 %}<div class="row pager" style="margin-top:8px"><span class="sub">{{ f_amt(total_rows) }}行中 {{ (page - 1) * 500 + 1 }}〜{{ [page * 500, total_rows] | min }}行目</span><div class="right">
+  {% if page > 1 %}<a class="btn btn-s" href="{{ base }}?{{ qs }}&page={{ page - 1 }}">前へ</a>{% endif %}<span>{{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a class="btn btn-s" href="{{ base }}?{{ qs }}&page={{ page + 1 }}">次へ</a>{% endif %}</div></div>{% endif %}
+    <p class="note" style="margin-top:8px">{{ V.k1 }}をクリックすると明細を表示します。確認済み・コメントは入力すると自動で保存されます。差異 = 売上 − 受領。</p>
+  </div>
+  {% else %}
+  <div class="inner" style="padding-top:12px">
+    <table class="tbl">
+      <thead><tr><th>種別</th><th>取引日付</th><th>相手先注文番号</th><th>店舗</th><th>相手先商品コード</th><th>商品名(受領)</th><th>採用した自社商品コード</th><th>備考</th><th class="n">受領金額</th><th class="n">受領ファイル行</th></tr></thead>
+      <tbody>
+      {% for w in warns %}
+        <tr><td><span class="b {{ 'b-r' if w.conv_status == 'none' else 'b-diff' }}">{{ '変換不可' if w.conv_status == 'none' else '複数候補' }}</span></td>
+          <td>{{ fmt_date(w.tdate) }}</td><td>{{ w.order_no }}</td><td>{{ w.store }} {{ w.store_name }}</td><td>{{ w.partner_code }}</td><td>{{ w.name }}</td>
+          <td>{{ '—' if w.conv_status == 'none' else w.own_code }}</td><td class="wrap">{{ w.conv_note }}</td><td class="n">{{ f_amt(w.amt) }}</td><td class="n">{{ w.row_no }}</td></tr>
+      {% else %}
+        <tr><td colspan="10" class="zero" style="text-align:center;padding:24px">変換警告はありません。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+{% if pages > 1 %}<div class="row pager" style="margin-top:8px"><span class="sub">{{ f_amt(total_rows) }}行中 {{ (page - 1) * 500 + 1 }}〜{{ [page * 500, total_rows] | min }}行目</span><div class="right">
+  {% if page > 1 %}<a class="btn btn-s" href="{{ base }}?{{ qs }}&page={{ page - 1 }}">前へ</a>{% endif %}<span>{{ page }} / {{ pages }}</span>
+  {% if page < pages %}<a class="btn btn-s" href="{{ base }}?{{ qs }}&page={{ page + 1 }}">次へ</a>{% endif %}</div></div>{% endif %}
+    <p class="note" style="margin-top:8px">変換不可の行は、相手先商品コードの頭に「[未変換]」を付けて照合しています。販売台帳に登録してから「再取込・再照合」すると解消します。</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

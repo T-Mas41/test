@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}受領レイアウト・得意先割当{% endblock %}
+{% block main %}
+<h1>受領レイアウト・得意先割当</h1>
+<section class="card">
+  <h2>受領レイアウト</h2>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>レイアウト名</th><th>形式</th><th>文字コード</th><th class="n">列数</th><th>見出し行/開始行</th><th class="n">割当得意先</th><th>更新日時</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for l in layouts %}
+      <tr>
+        <td>{% if l.is_standard %}<span class="b b-std">標準</span> {% endif %}{{ l.name }}</td>
+        <td>{{ 'Excel' if l.file_type == 'excel' else 'CSV(' ~ DELIMITERS.get(l.delimiter, l.delimiter) ~ ')' }}{{ '(シート「' ~ l.sheet_name ~ '」)' if l.file_type == 'excel' and l.sheet_name }}</td>
+        <td>{{ ENCODINGS.get(l.encoding, l.encoding) if l.file_type == 'csv' else '—' }}</td>
+        <td class="n">{{ l.col_count }}</td><td>{{ l.header_row }} / {{ l.data_start_row }}</td>
+        <td class="n">{{ '(割当なしの全得意先)' if l.is_standard and not l.assigned else l.assigned }}</td>
+        <td>{{ (l.updated_at or '') | replace('-', '/') }}</td>
+        <td><div class="row" style="gap:6px">
+          <a href="/layouts/{{ l.id }}/edit" class="btn btn-s">編集</a>
+          {% if not l.is_standard %}
+          <form method="post" action="/layouts/{{ l.id }}/standard" class="inline" data-confirm="「{{ l.name }}」を標準レイアウトにします。割当のない得意先はこのレイアウトで読み込みます。"><button type="submit" class="btn btn-s">標準にする</button></form>
+          <form method="post" action="/layouts/{{ l.id }}/delete" class="inline" data-confirm="「{{ l.name }}」を削除します。よろしいですか?"><button type="submit" class="btn btn-s btn-danger">削除</button></form>
+          {% endif %}
+        </div></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <details>
+    <summary class="btn btn-p" style="display:inline-flex;list-style:none">+ 新規(サンプルファイルから作成)</summary>
+    <form method="post" action="/layouts/new" enctype="multipart/form-data" class="js-busy" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;background:var(--bg);border-radius:6px;padding:14px 16px">
+      <div class="filters">
+        <label class="lbl">レイアウト名<input class="fld" name="name" required style="width:240px" placeholder="例 K社 個別Excel"></label>
+        <label class="lbl">形式<select class="fld" name="file_type"><option value="excel">Excel(.xlsx)</option><option value="csv">CSV</option></select></label>
+        <label class="lbl js-csv">文字コード<select class="fld" name="encoding">{% for k, v in ENCODINGS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+        <label class="lbl js-csv">区切り文字<select class="fld" name="delimiter">{% for k, v in DELIMITERS.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+        <label class="lbl js-excel">シート名(空欄=先頭)<input class="fld" name="sheet_name" style="width:160px"></label>
+        <label class="lbl">見出し行<input class="fld" type="number" name="header_row" value="1" min="1" style="width:90px"></label>
+        <label class="lbl">データ開始行<input class="fld" type="number" name="data_start_row" value="2" min="2" style="width:90px"></label>
+      </div>
+      <label class="drop">得意先から受け取った受領データのサンプル(.xlsx / .csv)
+        <input type="file" name="file" accept=".xlsx,.csv,.txt" required><span class="fname"></span></label>
+      <div><button type="submit" class="btn btn-p">サンプルを読み込む</button></div>
+    </form>
+  </details>
+  <p class="note">得意先に割り当てられているレイアウトは削除できません(先に割当を解除してください)。</p>
+</section>
+
+<section class="card">
+  <div class="row"><h2>得意先レイアウト割当</h2><span class="sub">ここに無い販売先は「標準」レイアウトで読み込みます</span></div>
+  <form method="post" action="/assignments" class="filters" style="background:var(--bg);border-radius:6px;padding:12px 14px">
+    <label class="lbl">販売先コード<input class="fld" name="cust" list="custs" required placeholder="例 20005530" style="width:170px" autocomplete="off">
+      <datalist id="custs">{% for c in customers %}<option value="{{ c.cust }}">{{ c.cust }} {{ c.cust_name or '' }}</option>{% endfor %}</datalist></label>
+    <label class="lbl">販売先名(空欄なら台帳から)<input class="fld" name="cust_name" style="width:200px"></label>
+    <label class="lbl">レイアウト<select class="fld" name="layout_id">{% for l in layouts %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></label>
+    <button type="submit" class="btn btn-p">追加・変更</button>
+  </form>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>販売先コード</th><th>販売先名</th><th>使用レイアウト</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for a in assignments %}
+      <tr><td>{{ a.cust }}</td><td>{{ a.cust_name or '' }}</td><td>{{ a.layout_name }}</td>
+        <td><form method="post" action="/assignments/{{ quote(a.cust) }}/delete" class="inline" data-confirm="販売先 {{ a.cust }} の割当を解除します。"><button type="submit" class="btn btn-s btn-danger">割当解除</button></form></td></tr>
+    {% else %}<tr><td colspan="4" class="zero">割当はありません(すべて標準レイアウトで読み込みます)。</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <p class="note">割当を変更するときは、同じ販売先コードで「追加・変更」してください。</p>
+</section>
+{% endblock %}

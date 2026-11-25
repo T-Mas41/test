@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}受領レイアウト編集{% endblock %}
+{% block main %}
+<div>
+  <a href="/layouts" class="sub">← 受領レイアウト一覧</a>
+  <h1>受領レイアウト編集:{{ lay.name }}{% if lay.is_standard %} <span class="b b-std">標準</span>{% endif %}</h1>
+</div>
+<form method="post" action="/layouts/{{ lay.id }}/edit" style="display:flex;flex-direction:column;gap:18px">
+<section class="card">
+  <h2>1. ファイル形式</h2>
+  <div class="filters">
+    <label class="lbl">レイアウト名<input class="fld" name="name" value="{{ lay.name }}" required style="width:240px"></label>
+    <label class="lbl">形式<select class="fld" name="file_type"><option value="excel" {{ 'selected' if lay.file_type == 'excel' }}>Excel(.xlsx)</option><option value="csv" {{ 'selected' if lay.file_type == 'csv' }}>CSV</option></select></label>
+    <label class="lbl js-csv">文字コード<select class="fld" name="encoding">{% for k, v in ENCODINGS.items() %}<option value="{{ k }}" {{ 'selected' if lay.encoding == k }}>{{ v }}</option>{% endfor %}</select></label>
+    <label class="lbl js-csv">区切り文字<select class="fld" name="delimiter">{% for k, v in DELIMITERS.items() %}<option value="{{ k }}" {{ 'selected' if lay.delimiter == k }}>{{ v }}</option>{% endfor %}</select></label>
+    <label class="lbl js-excel">シート名(空欄=先頭)<input class="fld" name="sheet_name" value="{{ lay.sheet_name }}" style="width:160px"></label>
+    <label class="lbl">見出し行<input class="fld" type="number" name="header_row" value="{{ lay.header_row }}" min="1" style="width:90px"></label>
+    <label class="lbl">データ開始行<input class="fld" type="number" name="data_start_row" value="{{ lay.data_start_row }}" min="2" style="width:90px"></label>
+  </div>
+  <div class="sub">サンプル:{{ lay.sample_file or '(初期登録のため見出しのみ)' }}({{ cols|length }}列)</div>
+</section>
+
+<section class="card">
+  <div class="row"><h2>2. 項目の役割</h2>
+    <div class="right"><a class="btn btn-s" href="?{{ '' if all_cols else 'all_cols=1' }}">{{ '役割を設定した列だけ表示' if all_cols else 'すべての列を表示' }}</a></div></div>
+  <div class="row" style="gap:8px;font-size:13px">
+    <span class="sub">必須の役割:</span>
+    {% for k, label, req in ROLES if req %}<span class="chip {{ 'chip-ok' if k in used else 'chip-ng' }}">{{ '✓' if k in used else '未設定' }} {{ label }}</span>{% endfor %}
+  </div>
+  {% for p in problems %}<div class="msg msg-err">{{ p }}</div>{% endfor %}
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th class="n">列</th><th>見出し名</th><th>サンプル値(1行目)</th><th>役割</th><th>日付書式</th></tr></thead>
+    <tbody>
+    {% for c in cols %}
+      {% if all_cols or c.role %}
+      <tr class="{{ 'used' if c.role }}">
+        <td class="n">{{ c.col_no }}</td><td>{{ c.header }}</td>
+        <td>{{ samples[0][c.col_no - 1] if samples and samples[0]|length >= c.col_no else '' }}</td>
+        <td><select class="fld fld-s" name="role_{{ c.col_no }}" aria-label="{{ c.header }} の役割" style="width:190px">
+          <option value="">未使用</option>
+          {% for k, label, req in ROLES %}<option value="{{ k }}" {{ 'selected' if c.role == k }}>{{ label }}{{ '(必須)' if req }}</option>{% endfor %}
+        </select></td>
+        <td>{% if c.role == 'tdate' %}<select class="fld fld-s" name="fmt_{{ c.col_no }}" aria-label="日付書式">{% for k, v in DATE_FORMATS.items() %}<option value="{{ k }}" {{ 'selected' if c.date_format == k }}>{{ v }}</option>{% endfor %}</select>{% endif %}</td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="note">{% if not all_cols %}役割を設定していない列は非表示です。別の列に役割を付けるには「すべての列を表示」を押してください。{% endif %}販売先コードの役割がない場合は、照合作成時に指定した販売先として扱います。</p>
+</section>
+<div class="row"><div class="right"><a href="/layouts" class="btn">一覧へ戻る</a><button type="submit" class="btn btn-p">保存</button></div></div>
+</form>
+
+<section class="card">
+  <h2>3. 変換結果プレビュー(サンプル先頭{{ preview|length }}行)</h2>
+  {% if preview %}
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr>{% for k, label, req in ROLES if k in used %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for p in preview %}<tr>{% for k, label, req in ROLES if k in used %}<td>{{ p.get(k, '') }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+  </table></div>
+  <p class="note">保存後の設定でプレビューします。</p>
+  {% else %}<div class="sub">サンプルのデータ行がありません。下からサンプルファイルを読み込むとプレビューできます。</div>{% endif %}
+  <form method="post" action="/layouts/{{ lay.id }}/sample" enctype="multipart/form-data" class="row js-busy">
+    <label class="drop" style="flex:1 1 360px">別のサンプルで読み直す(列の構成が変わった場合など)
+      <input type="file" name="file" accept=".xlsx,.csv,.txt" required><span class="fname"></span></label>
+    <button type="submit" class="btn">読み直す</button>
+  </form>
+</section>
+{% endblock %}

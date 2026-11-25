@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}新規照合{% endblock %}
+{% block main %}
+<h1>{{ '再取込・再照合' if parent else '新規照合' }}</h1>
+{% if not ledger_meta %}<div class="msg msg-warn">販売台帳が未取込です。受領データの商品コードがすべて「変換不可」になります。先に<a href="/ledger">販売台帳</a>を取り込んでください。</div>{% endif %}
+<form method="post" action="/new" enctype="multipart/form-data" class="js-busy" style="display:flex;flex-direction:column;gap:18px;max-width:1100px">
+{% if parent %}<input type="hidden" name="parent" value="{{ parent.id }}">{% endif %}
+<section class="card">
+  <h2><span class="step">1</span>照合条件</h2>
+  <div class="filters">
+    {% if parent %}
+      <div class="lbl">販売先<div class="fld" style="display:flex;align-items:center;min-width:260px">{{ parent.cust }} {{ parent.cust_name or '' }}</div></div>
+    {% else %}
+      <label class="lbl">販売先コード
+        <input class="fld" name="cust" list="custs" required style="min-width:260px" placeholder="例 20005525" autocomplete="off">
+        <datalist id="custs">{% for c, n in customers %}<option value="{{ c }}">{{ c }} {{ n }}</option>{% endfor %}</datalist></label>
+    {% endif %}
+    <label class="lbl">取引日付 From<input class="fld" name="date_from" required placeholder="YYYY/MM/DD" value="{{ fmt_date(parent.date_from) if parent else '' }}" style="width:150px"></label>
+    <label class="lbl">取引日付 To<input class="fld" name="date_to" required placeholder="YYYY/MM/DD" value="{{ fmt_date(parent.date_to) if parent else '' }}" style="width:150px"></label>
+  </div>
+  <div class="sub">使用する受領レイアウト:販売先に割当があればそのレイアウト、なければ <strong>{{ standard.name if standard else '(標準未設定)' }}</strong>。
+  {% if assignments %}割当のある販売先:{% for c, n in assignments.items() %}{{ c }}→{{ n }}{{ '、' if not loop.last }}{% endfor %}{% endif %}</div>
+  {% if parent %}<div class="sub">確定すると、この照合の明細を新しいファイルの内容で置き換えます。確認済み・コメントは同じキーの行に引き継がれます。</div>{% endif %}
+</section>
+<section class="card">
+  <h2><span class="step">2</span>ファイル取込</h2>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <strong>自社売上データ(Excel .xlsx)</strong>
+      <label class="drop">ここにファイルをドラッグ&ドロップ、またはファイルを選択
+        <input type="file" name="sales_file" accept=".xlsx" required><span class="fname"></span></label>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <strong>受領データ(Excel .xlsx / CSV)</strong>
+      <label class="drop">ここにファイルをドラッグ&ドロップ、またはファイルを選択
+        <input type="file" name="receipt_file" accept=".xlsx,.csv,.txt" required><span class="fname"></span></label>
+    </div>
+  </div>
+  <div class="sub">次の画面で、取込件数・エラー・変換警告を確認してから照合を確定します。</div>
+</section>
+<div class="row"><div class="right">
+  <a href="{{ '/matches/%d' % parent.id if parent else '/' }}" class="btn">キャンセル</a>
+  <button type="submit" class="btn btn-p">取り込んで確認</button>
+</div></div>
+</form>
+{% endblock %}

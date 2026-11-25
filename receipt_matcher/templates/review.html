@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}取込結果の確認{% endblock %}
+{% block main %}
+{% set s = stats.sales %}{% set r = stats.receipt %}
+<h1>取込結果の確認</h1>
+<div class="info">
+  <div><div class="k">販売先</div><div class="v">{{ m.cust }} {{ m.cust_name or '' }}</div></div>
+  <div><div class="k">期間(取引日付)</div><div class="v">{{ fmt_date(m.date_from) }}〜{{ fmt_date(m.date_to) }}</div></div>
+  <div><div class="k">受領レイアウト</div><div class="v">{{ m.layout_name }}{{ '' if stats.layout_assigned else '(割当なし→標準)' }}</div></div>
+  {% if parent %}<div><div class="k">再取込</div><div class="v">既存の照合を置き換えます</div></div>{% endif %}
+</div>
+<div class="grid2">
+  <section class="card">
+    <h2>自社売上データ:{{ m.sales_file }}</h2>
+    <div class="msg msg-ok">レイアウト検査:OK(188列・見出し一致)</div>
+    <div class="kv">
+      <div>データ行</div><div>{{ f_amt(s.total) }}行</div>
+      <div>照合対象</div><div><strong>{{ f_amt(s.target) }}行</strong></div>
+      <div>対象外</div><div>他の販売先 {{ f_amt(s.other_cust) }}行 / 期間外 {{ f_amt(s.out_of_period) }}行</div>
+      <div>読み飛ばし</div><div>{{ f_amt(s.skipped_blank) }}行(日付・注文番号・商品コードが空欄の行)</div>
+      <div>エラー</div><div>{% if s.error %}<span class="neg">{{ s.error }}行</span>{% else %}なし{% endif %}</div>
+    </div>
+  </section>
+  <section class="card">
+    <h2>受領データ:{{ m.receipt_file }}</h2>
+    {% if r.conv_none or r.conv_multi %}<div class="msg msg-warn">商品コード:変換不可 {{ r.conv_none }}件、複数候補 {{ r.conv_multi }}件(照合後に「変換警告」で確認できます)</div>
+    {% else %}<div class="msg msg-ok">商品コード:すべて販売台帳で変換できました</div>{% endif %}
+    {% if stats.ledger_empty %}<div class="msg msg-warn">販売台帳が未取込です。</div>{% endif %}
+    <div class="kv">
+      <div>データ行</div><div>{{ f_amt(r.total) }}行</div>
+      <div>照合対象</div><div><strong>{{ f_amt(r.target) }}行</strong></div>
+      <div>対象外</div><div>他の販売先 {{ f_amt(r.other_cust) }}行 / 期間外 {{ f_amt(r.out_of_period) }}行</div>
+      <div>読み飛ばし</div><div>{{ f_amt(r.skipped_blank) }}行(空行・合計行など)</div>
+      <div>エラー</div><div>{% if r.error %}<span class="neg">{{ r.error }}行</span>{% else %}なし{% endif %}</div>
+    </div>
+  </section>
+</div>
+<section class="card">
+  <h2>取込エラー</h2>
+  {% if errors %}
+    <div class="sub">エラーの行は照合の対象から除かれます。{% if stats.error_count > errors|length %}(先頭 {{ errors|length }}件を表示 / 全 {{ stats.error_count }}件){% endif %}</div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>ファイル</th><th class="n">行</th><th>内容</th></tr></thead><tbody>
+    {% for e in errors %}<tr><td>{{ e.file }}</td><td class="n">{{ e.row }}</td><td>{{ e.msg }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  {% else %}<div class="sub">エラー行はありません。</div>{% endif %}
+</section>
+<div class="row"><div class="right">
+  <form method="post" action="/review/{{ m.id }}/cancel" class="inline"><button type="submit" class="btn">中止</button></form>
+  <form method="post" action="/review/{{ m.id }}/confirm" class="inline js-busy"><button type="submit" class="btn btn-p">{{ 'エラー行を除いて照合を実行' if stats.error_count else '照合を実行' }}</button></form>
+</div></div>
+{% endblock %}

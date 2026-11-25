@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}明細{% endblock %}
+{% macro dcell(fn, v) -%}<span class="{{ 'zero' if v == 0 else ('neg' if v < 0 else 'pos') }}">{{ signed(fn, v) }}</span>{%- endmacro %}
+{% block main %}
+{% set base = '/matches/%d' % m.id %}{% set r = d.row %}{% set V = VIEWS[view] %}
+<div>
+  <a href="{{ base }}?view={{ view }}" class="sub">← 照合結果({{ V.label }})に戻る</a>
+  <h1>明細:{{ V.k1 }} {{ r.k1 }}{% if r.k2 %} ・ {{ r.k2 }}{% endif %}</h1>
+</div>
+<div class="info">
+  <div><div class="k">販売先</div><div class="v">{{ m.cust }} {{ m.cust_name or '' }}</div></div>
+  <div><div class="k">判定</div><span class="b {{ r.badge }}">{{ r.judge_label }}</span></div>
+  <div><div class="k">差異(売上−受領)</div><div class="v">金額 {{ dcell(f_amt, r.d[0]) }} / 数量 {{ dcell(f_qty, r.d[1]) }} / 重量 {{ dcell(f_wt, r.d[2]) }}</div></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px">
+  <section class="card">
+    <h2 style="color:var(--primary-d)">売上明細(自社){{ d.sales|length }}行</h2>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>取引日付</th><th>注文番号</th><th>店舗</th><th>売上伝票番号</th><th>商品コード</th><th>商品名</th><th class="n">数量</th><th class="n">重量</th><th class="n">金額</th></tr></thead>
+      <tbody>{% for x in d.sales %}<tr><td>{{ fmt_date(x.tdate) }}</td><td>{{ x.order_no }}</td><td>{{ x.store }}</td><td>{{ x.slip_no }}</td><td>{{ x.own_code }}</td><td>{{ x.name }}</td><td class="n">{{ f_qty(x.qty) }}</td><td class="n">{{ f_wt(x.wt) }}</td><td class="n">{{ f_amt(x.amt) }}</td></tr>
+      {% else %}<tr><td colspan="9" class="zero">売上側に明細はありません</td></tr>{% endfor %}</tbody>
+      {% if d.sales %}<tfoot><tr><td colspan="6">計</td><td class="n">{{ f_qty(r.s[1]) }}</td><td class="n">{{ f_wt(r.s[2]) }}</td><td class="n">{{ f_amt(r.s[0]) }}</td></tr></tfoot>{% endif %}
+    </table></div>
+  </section>
+  <section class="card">
+    <h2 style="color:#7A3A12">受領明細(得意先){{ d.receipt|length }}行</h2>
+    <div class="tblwrap"><table class="tbl">
+      <thead><tr><th>取引日付</th><th>注文番号</th><th>店舗</th><th>相手先商品コード</th><th>変換後の自社商品コード</th><th>商品名(受領)</th><th class="n">数量</th><th class="n">重量</th><th class="n">金額</th></tr></thead>
+      <tbody>{% for x in d.receipt %}<tr><td>{{ fmt_date(x.tdate) }}</td><td>{{ x.order_no }}</td><td>{{ x.store }}</td><td>{{ x.partner_code }}</td>
+        <td>{{ x.own_code }} {% if x.conv_status == 'ok' %}<span class="b b-ok" title="{{ x.conv_note }}">台帳で変換</span>{% elif x.conv_status == 'multi' %}<span class="b b-diff" title="{{ x.conv_note }}">複数候補</span>{% else %}<span class="b b-r">変換不可</span>{% endif %}</td>
+        <td>{{ x.name }}</td><td class="n">{{ f_qty(x.qty) }}</td><td class="n">{{ f_wt(x.wt) }}</td><td class="n">{{ f_amt(x.amt) }}</td></tr>
+      {% else %}<tr><td colspan="9" class="zero">受領側に明細はありません</td></tr>{% endfor %}</tbody>
+      {% if d.receipt %}<tfoot><tr><td colspan="6">計</td><td class="n">{{ f_qty(r.r[1]) }}</td><td class="n">{{ f_wt(r.r[2]) }}</td><td class="n">{{ f_amt(r.r[0]) }}</td></tr></tfoot>{% endif %}
+    </table></div>
+  </section>
+</div>
+{% if view != 'item' %}
+<section class="card">
+  <h2>商品別の比較</h2>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th>判定</th></tr></thead>
+    <tbody>{% for it in d.products %}<tr class="{{ it.row_cls }}"><td>{{ it.key[0] }}</td><td>{{ it.name }}</td>
+      <td class="n">{{ f_amt(it.s[0]) if it.s else '—' }}</td><td class="n">{{ f_amt(it.r[0]) if it.r else '—' }}</td>
+      <td class="n">{{ dcell(f_amt, it.d[0]) }}</td><td class="n">{{ dcell(f_qty, it.d[1]) }}</td><td class="n">{{ dcell(f_wt, it.d[2]) }}</td>
+      <td><span class="b {{ it.badge }}">{{ it.judge_label }}</span></td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+<section class="card">
+  <h2>確認状況</h2>
+  <form method="post" action="{{ base }}/confirm-row" style="display:flex;flex-direction:column;gap:10px">
+    <input type="hidden" name="view" value="{{ view }}"><input type="hidden" name="key" value="{{ key }}">
+    <input type="hidden" name="next" value="{{ base }}/detail?view={{ view }}&key={{ quote(key) }}&msg={{ quote('保存しました。') }}">
+    <label class="chk" style="font-size:14px"><input type="checkbox" name="checked" value="1" {{ 'checked' if r.checked }}> 確認済みにする</label>
+    <label class="lbl">コメント<textarea name="comment" rows="3" class="fld" maxlength="1000" placeholder="差異の理由や対応を記入">{{ r.comment }}</textarea></label>
+    <div class="sub">最終更新:{{ r.updated_at | replace('-', '/') if r.updated_at else '—' }}</div>
+    <div class="row"><button type="submit" class="btn btn-p">保存</button><a href="{{ base }}?view={{ view }}" class="btn">戻る</a></div>
+  </form>
+</section>
+{% endblock %}

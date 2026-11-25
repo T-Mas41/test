@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}販売台帳{% endblock %}
+{% block main %}
+<h1>販売台帳</h1>
+<div class="grid2">
+  <section class="card">
+    <h2>取込(全件入れ替え)</h2>
+    <form method="post" action="/ledger" enctype="multipart/form-data" class="js-busy" data-confirm="現在の販売台帳をすべて置き換えます。よろしいですか?" style="display:flex;flex-direction:column;gap:10px">
+      <label class="drop">販売台帳のExcelファイル(.xlsx)をここにドラッグ&ドロップ、またはファイルを選択
+        <input type="file" name="file" accept=".xlsx" required><span class="fname"></span></label>
+      <div class="row"><span class="sub">取り込むと現在の台帳はすべて置き換わります。削除区分「9」の行は取り込みません。</span>
+        <div class="right"><button type="submit" class="btn btn-p">取り込む</button></div></div>
+    </form>
+  </section>
+  <section class="card">
+    <h2>現在の台帳</h2>
+    {% if meta %}
+    <div class="kv">
+      <div>ファイル名</div><div>{{ meta.file_name }}</div>
+      <div>取込日時</div><div>{{ meta.imported_at | replace('-', '/') }}</div>
+      <div>取込件数</div><div>{{ f_amt(meta.loaded_rows) }}件(全 {{ f_amt(meta.total_rows) }}行、削除区分9 を除外 {{ f_amt(meta.deleted_rows) }}行{% if meta.skipped_rows %}、コード空欄で除外 {{ f_amt(meta.skipped_rows) }}行{% endif %})</div>
+      <div>注意</div><div>{% if dup_count %}<span class="b b-diff">キー重複 {{ dup_count }}件</span> 同じ販売先+店舗+相手先商品コードに自社商品コードが複数あります(照合時は先頭を採用し警告)。{% else %}キー重複はありません。{% endif %}</div>
+    </div>
+    {% else %}<div class="sub">まだ取り込まれていません。</div>{% endif %}
+  </section>
+</div>
+<section class="card">
+  <form method="get" class="filters">
+    <h2 style="margin-right:auto">台帳の内容</h2>
+    <label class="lbl">販売先<select name="cust" class="fld"><option value="">すべて</option>
+      {% for c in customers %}<option value="{{ c.cust }}" {{ 'selected' if c.cust == cust }}>{{ c.cust }} {{ c.cust_name or '' }}</option>{% endfor %}</select></label>
+    <label class="lbl">検索<input class="fld" type="search" name="q" value="{{ q }}" placeholder="商品コード・商品名" style="width:240px"></label>
+    <label class="chk" style="height:34px"><input type="checkbox" name="dup" value="1" {{ 'checked' if dup }}> キー重複のみ</label>
+    <button type="submit" class="btn">表示</button>
+  </form>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>販売先</th><th>店舗</th><th>販売先商品識別ｺｰﾄﾞ(相手先)</th><th>自社商品コード</th><th>商品略称</th><th>状態</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr><td>{{ r.cust }} {{ r.cust_name or '' }}</td><td>{{ r.store }}{{ ' 指定なし' if r.store == STORE_ANY }}</td><td>{{ r.partner_code }}</td><td>{{ r.own_code }}</td><td>{{ r.own_name }}</td>
+        <td>{% if r.cand > 1 %}<span class="b b-diff">キー重複</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="6" class="zero">該当するデータはありません。</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <div class="row">
+    <span class="sub">{{ f_amt(total) }}件 ・ 検索順:①販売先+店舗+相手先コード → ②販売先+店舗「指定なし」+相手先コード</span>
+    {% if pages > 1 %}<div class="right pager">
+      {% if page > 1 %}<a class="btn btn-s" href="?cust={{ cust }}&q={{ quote(q) }}&dup={{ dup }}&page={{ page - 1 }}">前へ</a>{% endif %}
+      <span>{{ page }} / {{ pages }}</span>
+      {% if page < pages %}<a class="btn btn-s" href="?cust={{ cust }}&q={{ quote(q) }}&dup={{ dup }}&page={{ page + 1 }}">次へ</a>{% endif %}
+    </div>{% endif %}
+  </div>
+</section>
+{% endblock %}
