@@ -1174,7 +1174,8 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const S = s ? [s.a, s.q, s.w] : [0, 0, 0], R = r ? [r.a, r.q, r.w] : [0, 0, 0];
     const d = [S[0] - R[0], S[1] - R[1], S[2] - R[2]];
     void full;  // 差異のあり・なしは、どの切り口でも金額だけで判定する(数量・重量は表示のみ)
-    const judge = !s ? 'ronly' : !r ? 'sonly' : (d[0] !== 0 ? 'diff' : 'ok');
+    // 差異金額が0なら、片方にしか計上がなくても「一致」とする
+    const judge = d[0] === 0 ? 'ok' : !s ? 'ronly' : !r ? 'sonly' : 'diff';
     const [label, badge, rowCls] = RM.JUDGE[judge];
     return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: label,
       judge_short: label, badge, row_cls: rowCls, ok: judge === 'ok' };

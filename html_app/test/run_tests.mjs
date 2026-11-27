@@ -81,6 +81,10 @@ await test('full flow (same expectations as Python version)', async () => {
   // 日別・日別店別・伝票別は金額だけで判定
   assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 0 }, false).judge, 'ok');
   assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 500 }, true).judge, 'ok');  // 判定は金額のみ
+  assert.equal(RM.compare({ a: 0, q: 1000, w: 300 }, null).judge, 'ok');      // 片方のみでも差異金額0なら一致
+  assert.equal(RM.compare(null, { a: 0, q: 0, w: 0 }).judge, 'ok');
+  assert.equal(RM.compare({ a: 10, q: 0, w: 0 }, null).judge, 'sonly');
+  assert.equal(RM.compare(null, { a: -10, q: 0, w: 0 }).judge, 'ronly');
   assert.deepEqual(new Set((await RM.warnings(id)).map(w => w.conv_status)), new Set(['none', 'multi']));
   const cnt = await RM.counts(id);
   assert.deepEqual(cnt, { day: 4, store: 4, slip: 4, item: 6, warn: 2 });
