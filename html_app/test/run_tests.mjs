@@ -117,7 +117,8 @@ await test('full flow (same expectations as Python version)', async () => {
   const itemTotal = itemSheet[itemSheet.length - 1];
   assert.deepEqual(itemTotal.slice(4, 13), [50, 10.855, 74862, 50, 10.82, 78944, 0, 0.035, -4082]);
   const summary = await RM.readXlsx(buf, { sheetName: 'サマリ' });
-  assert.equal(summary[1][1], '販売先:20005525 H');
+  assert.deepEqual([summary[2][1], summary[2][2]], ['販売先', '20005525  H']);
+  assert.deepEqual([summary[3][1], summary[3][2]], ['照合期間', '2026/11/01 〜 2026/11/10']);
   const ci = summary.findIndex(r => r[1] === '売上額(自社)');
   assert.deepEqual(summary[ci + 1].slice(1, 4), [74862, 78944, -4082]);
 

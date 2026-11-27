@@ -493,19 +493,23 @@
     const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
     const sheets = [];
     // サマリ: 画面の3枚のカード(売上額・受領額・差額)と同じ並び
-    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }],
-      [{ v: `販売先:${m.cust} ${m.cust_name || ''}`.trim(), s: st(0, 0, 9) }],
-      [{ v: `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`, s: st(0, 0, 10) }], [],
-      [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
-      [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
-      [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
+    // サマリ上部: 販売先・照合期間を枠で囲んで大きく表示し、取込情報は罫線付きの表にする
+    const box = (v, k) => [{ v, s: st(0, 0, k) }, { v: '', s: st(0, 0, k) }];
+    const info = (label, v) => [{ v: label, s: st(0, 0, 16) }, C(v), C('')];
+    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
+      [H('販売先')].concat(box(`${m.cust}  ${m.cust_name || ''}`.trim(), 14)),
+      [H('照合期間')].concat(box(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`, 15)), [],
+      info('売上データ', `${m.sales_file}(${t.s_rows.toLocaleString()}行)`),
+      info('受領データ', `${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`),
+      info('照合日時', (m.matched_at || '').replace(/-/g, '/')), info('出力日時', now().replace(/-/g, '/')), [],
       [H('売上額(自社)'), H('受領額(得意先)'), H('差額(売上−受領)')],
       [{ v: t.s[0], s: st(0, 0, 5) }, { v: t.r[0], s: st(0, 0, 5) }, { v: t.d[0], s: st(0, 0, t.d[0] ? 6 : 7) }],
       [P('売上データ 合計'), P('受領データ 合計'), P(t.d[0] ? '日別シートで内訳を確認' : '一致')], [],
       [H('切り口'), H('不一致の件数'), H('比較項目')]];
     for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k]), C(v.full ? '数量・重量・金額' : '金額')]);
     sum.push([C('変換警告'), C(cnt.warn), C('商品コードの変換')]);
-    sheets.push({ name: 'サマリ', widths: [24, 24, 24, 10], rows: sum });
+    sheets.push({ name: 'サマリ', widths: [24, 26, 26, 10], rows: sum, heights: { 2: 30, 3: 26 },
+      merges: ['B3:C3', 'B4:C4', 'B6:C6', 'B7:C7', 'B8:C8', 'B9:C9'] });
     const custTitle = `販売先:${m.cust} ${m.cust_name || ''}`.trim();
     const period = `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`;
     const top = label => [[{ v: custTitle, s: st(0, 0, 9) }], [{ v: period, s: st(0, 0, 10) }], [{ v: label, s: st(0, 0, 4) }]];

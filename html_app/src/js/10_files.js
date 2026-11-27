@@ -334,7 +334,7 @@
     if (kind === 8) return 23 + fmt;
     if (kind === 9) return 27;
     if (kind === 10) return 28;
-    if (kind >= 11 && kind <= 13) return 18 + kind;  // 11:売上見出し 12:受領見出し 13:差異見出し
+    if (kind >= 11 && kind <= 16) return 18 + kind;  // 11:売上見出し 12:受領見出し 13:差異見出し 14:枠付き値(16pt) 15:枠付き値(14pt) 16:項目名(灰背景)
     if (kind >= 5) return 15 + kind;
     if (kind === 1) return 1;
     if (kind === 2) return 2;
@@ -361,28 +361,34 @@
       '<xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/>';
     // 29-31: 売上・受領・差異の見出し
     xfs += [10, 11, 12].map(f => `<xf numFmtId="0" fontId="1" fillId="${f}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>`).join('');
+    // 32: 枠付きの値(太字16pt) 33: 枠付きの値(太字14pt) 34: 項目名(太字・灰背景)
+    xfs += '<xf numFmtId="0" fontId="4" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
+      '<xf numFmtId="0" fontId="7" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
+      '<xf numFmtId="0" fontId="2" fillId="13" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>';
     const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
       FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
-      '<fonts count="7"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<fonts count="8"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-      '<font><b/><sz val="13"/><color rgb="FF5B3FD6"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
-      `<fills count="13">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
+      '<font><b/><sz val="13"/><color rgb="FF5B3FD6"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="14">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
       '<fill><patternFill patternType="solid"><fgColor rgb="FFFDEDED"/><bgColor indexed="64"/></patternFill></fill>' +
       '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill>' +
       '<fill><patternFill patternType="solid"><fgColor rgb="FFF1EDFF"/><bgColor indexed="64"/></patternFill></fill>' +
-      ['3B5CC4', 'C2611F', '4A4368'].map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('') + '</fills>' +
-      '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+      ['3B5CC4', 'C2611F', '4A4368', 'F4F2FA'].map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('') + '</fills>' +
+      '<borders count="4"><border><left/><right/><top/><bottom/><diagonal/></border>' +
       '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border>' +
-      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="double"><color rgb="FF6D4CE5"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="double"><color rgb="FF6D4CE5"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border>' +
+      '<border><left style="medium"><color rgb="FF6D4CE5"/></left><right style="medium"><color rgb="FF6D4CE5"/></right><top style="medium"><color rgb="FF6D4CE5"/></top><bottom style="medium"><color rgb="FF6D4CE5"/></bottom><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      `<cellXfs count="${4 + 16 + 3 + 6 + 3}">${xfs}</cellXfs>` +
+      `<cellXfs count="${4 + 16 + 3 + 6 + 3 + 3}">${xfs}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   }
 
@@ -395,7 +401,8 @@
     const files = [];
     const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
     sheets.forEach((sh, si) => {
-      const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', `<worksheet ${ns}>`];
+      const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', `<worksheet ${ns}>`,
+        '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'];  // 印刷時は用紙の幅に合わせる
       const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length)), fr = sh.freezeRows || 1;
       out.push(`<dimension ref="A1:${colName(ncols)}${Math.max(1, nrows)}"/>`);
       out.push('<sheetViews><sheetView workbookViewId="0"' + (si === 0 ? ' tabSelected="1"' : '') + '>' +
@@ -405,7 +412,8 @@
       out.push('<sheetData>');
       for (let r = 0; r < nrows; r++) {
         const row = sh.rows[r];
-        let x = `<row r="${r + 1}">`;
+        const ht = sh.heights && sh.heights[r];
+        let x = `<row r="${r + 1}"${ht ? ` ht="${ht}" customHeight="1"` : ''}>`;
         for (let c = 0; c < row.length; c++) {
           const cell = row[c];
           if (!cell) continue;
@@ -420,7 +428,9 @@
       }
       out.push('</sheetData>');
       if (sh.filter && nrows > 0) out.push(`<autoFilter ref="${sh.filterRef || `A1:${colName(ncols)}${nrows}`}"/>`);
-      out.push('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>');
+      if (sh.merges && sh.merges.length) out.push(`<mergeCells count="${sh.merges.length}">${sh.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>`);
+      out.push('<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>' +
+        '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>');  // A4横・幅1ページ
       files.push({ name: `xl/worksheets/sheet${si + 1}.xml`, data: enc.encode(out.join('')) });
     });
     const sheetList = sheets.map((s, i) => `<sheet name="${xesc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
