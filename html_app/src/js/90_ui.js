@@ -201,12 +201,19 @@ ${head('取込結果の確認', '件数・エラー・変換警告を確認し�
   <section class="card"><h2>自社売上データ:${h(m.sales_file)}</h2><div class="msg msg-ok">レイアウト検査:OK(188列・見出し一致)</div>${kv(s)}</section>
   <section class="card"><h2>受領データ:${h(m.receipt_file)}</h2>
     ${r.conv_none || r.conv_multi ? `<div class="msg msg-warn">商品コード:変換不可 ${r.conv_none}件、複数候補 ${r.conv_multi}件(照合後に「変換警告」で確認できます)</div>` : '<div class="msg msg-ok">商品コード:すべて販売台帳で変換できました</div>'}
-    ${st.ledger_empty ? '<div class="msg msg-warn">販売台帳が未取込です。</div>' : ''}${kv(r)}</section>
+    ${st.ledger_empty ? '<div class="msg msg-warn">販売台帳が未取込です。</div>' : ''}
+    ${!st.ledger_empty && r.target && r.conv_none / r.target >= 0.5 ? `<div class="msg msg-err">受領データの商品コードの<strong>${Math.round(r.conv_none / r.target * 100)}%</strong>が販売台帳で変換できません。次の点を確認してください。<br>・受領レイアウトで「相手先商品コード」にしている列が正しいか(JANコードと得意先の商品コードの取り違えなど)<br>・販売台帳に、この販売先(${h(m.cust)})の行が取り込まれているか(販売台帳の「販売先商品識別ｺｰﾄﾞ」と受領データのコードが同じか)</div>` : ''}
+    ${r.total && r.error / r.total >= 0.3 ? `<div class="msg msg-err">受領データの<strong>${Math.round(r.error / r.total * 100)}%</strong>の行が読み込めません。受領レイアウトの役割(どの列を日付・金額などにするか)が正しいか確認してください。</div>` : ''}${kv(r)}</section>
 </div>
 <section class="card"><h2>取込エラー</h2>
-${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除かれます。${st.error_count > m.errors.length ? `(先頭 ${m.errors.length}件を表示 / 全 ${st.error_count}件)` : ''}</div>
-  <div class="tblwrap"><table class="tbl"><thead><tr><th>ファイル</th><th class="n">行</th><th>内容</th></tr></thead><tbody>
-  ${m.errors.map(e => `<tr><td>${h(e.file)}</td><td class="n">${e.row}</td><td>${h(e.msg)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="sub">エラー行はありません。</div>'}
+${m.errors.length ? `<div class="sub">次の行は読み込めなかったため、照合の対象から除かれます。内容を確認し、問題なければ「エラー行を除いて照合を実行」を押してください。</div>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>ファイル</th><th>項目(列)</th><th>内容</th><th class="n">件数</th><th>行の例</th><th>値の例</th></tr></thead><tbody>
+  ${(st.error_groups || []).map(g => `<tr><td>${h(g.file)}</td><td>${h(g.field)}${g.col ? `(${g.col}列目「${h(g.header)}」)` : ''}</td><td>${h(g.reason)}</td>
+    <td class="n"><strong>${fAmt(g.count)}</strong></td><td>${g.rows.join('、')}${g.count > g.rows.length ? ' …' : ''}</td><td>${g.values.map(v => `「${h(v)}」`).join(' ')}</td></tr>`).join('')}
+  </tbody></table></div>
+  <details><summary class="btn btn-s" style="display:inline-flex">1行ずつの一覧を表示${st.error_count > m.errors.length ? `(先頭 ${m.errors.length}件 / 全 ${fAmt(st.error_count)}件)` : ''}</summary>
+  <div class="tblwrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>ファイル</th><th class="n">行</th><th>内容</th></tr></thead><tbody>
+  ${m.errors.map(e => `<tr><td>${h(e.file)}</td><td class="n">${e.row}</td><td>${h(e.msg)}</td></tr>`).join('')}</tbody></table></div></details>` : '<div class="sub">エラー行はありません。</div>'}
 </section>
 <div class="row"><div class="right"><button type="button" class="btn" data-act="review-cancel">中止</button>
   <button type="button" class="btn btn-p" data-act="review-confirm">${st.error_count ? 'エラー行を除いて照合を実行' : '照合を実行'}</button></div></div>` };

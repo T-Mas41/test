@@ -24,7 +24,7 @@
     if (typeof v === 'boolean') throw new Error('数値ではありません');
     if (typeof v === 'number') return v;
     let s = String(v).normalize('NFKC').trim();
-    if (s === '') return 0;
+    if (s === '' || /^[-_‐‑–—―ー*・.]+$/.test(s)) return 0;  // 空欄を表す記号(_ - * など)は0
     let neg = false;
     for (const m of MINUS) if (s.startsWith(m)) { neg = true; s = s.slice(m.length); }
     s = s.replace(/,/g, '').replace(/円/g, '').replace(/\s/g, '');

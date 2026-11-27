@@ -5,6 +5,34 @@
   const now = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
   RM.now = now;
   const cell = (row, col) => (row ? row[col] : undefined);
+  // 1行の日付・数値を読む。失敗したら「どの項目(何列目・見出し)のどんな値か」が分かるエラーを返す
+  function readValues(get, fields) {
+    const out = {};
+    for (const f of fields) {
+      const v = get(f.key);
+      try { out[f.key] = f.kind === 'date' ? date(v, f.fmt) : number(v); }
+      catch (e) {
+        const shown = text(v);
+        return { error: { field: f.label, col: f.col, header: f.header, value: shown.slice(0, 30),
+          reason: f.kind === 'date' ? (shown ? '日付として読めない値' : '日付が空欄') : '数値として読めない値',
+          msg: `${f.label}(${f.col}列目「${f.header}」)の値「${shown.slice(0, 30)}」を${f.kind === 'date' ? '日付' : '数値'}として読めません` } };
+      }
+    }
+    return { values: out };
+  }
+  // エラーを「ファイル・項目・理由」ごとにまとめる(取込結果の確認画面用)
+  function groupErrors(errors) {
+    const m = new Map();
+    for (const e of errors) {
+      const k = [e.file, e.field || '', e.col || '', e.reason || e.msg].join('|');
+      if (!m.has(k)) m.set(k, { file: e.file, field: e.field || '', col: e.col || '', header: e.header || '', reason: e.reason || e.msg, count: 0, rows: [], values: [] });
+      const g = m.get(k);
+      g.count++;
+      if (g.rows.length < 5) g.rows.push(e.row);
+      if (e.value !== undefined && g.values.length < 5 && !g.values.includes(e.value)) g.values.push(e.value);
+    }
+    return [...m.values()].sort((a, b) => b.count - a.count);
+  }
 
   // ================================================================ 売上(固定レイアウト・188列、列は位置で特定)
   // 自社商品コードは「商品識別コード」(9桁・50列目)を使う
@@ -25,6 +53,8 @@
   RM.ownCode = ownCode;
   RM.hasAny = hasAny;
 
+  const SALES_FIELDS = [['tdate', '取引日付', 'date'], ['qty', '数量'], ['wt', '重量'], ['amt', '金額']]
+    .map(([key, label, kind]) => ({ key, label, kind: kind || 'num', col: RM.SALES_COLS[key], header: RM.SALES_HEADERS[RM.SALES_COLS[key] - 1] }));
   /** 売上データを読む。販売先はデータ内の販売先コードで判定し、複数あればエラー。 */
   async function parseSales(buf, dfrom, dto, onProgress) {
     const rows = await RM.readXlsx(buf, { onProgress, cols: Object.values(RM.SALES_COLS) });
@@ -54,9 +84,9 @@
       const r = rows[i], g = k => cell(r, C[k]);
       if (isKeyBlank(r)) { if (hasAny(r)) stats.skipped_blank++; continue; }
       stats.total++;
-      let td, q, w, a;
-      try { td = date(g('tdate')); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
-      catch (e) { stats.error++; errors.push({ file: '売上', row: i + 1, msg: e.message }); continue; }
+      const rv = readValues(g, SALES_FIELDS);
+      if (rv.error) { stats.error++; errors.push({ file: '売上', row: i + 1, ...rv.error }); continue; }
+      const { tdate: td, qty: q, wt: w, amt: a } = rv.values;
       if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
       lines.push({ row_no: i + 1, store: code(g('store')), store_name: text(g('store_name')), tdate: td, order_no: code(g('order_no')),
         slip_no: text(g('slip_no')), own_code: ownCode(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
@@ -283,6 +313,18 @@
     if (missing.length) throw new ReadError(`レイアウト「${lay.name}」に必須の役割がありません: ${missing.join('、')}`);
     const rows = await RM.readRows(buf, lay.file_type, { encoding: lay.encoding, delimiter: lay.delimiter, sheetName: lay.sheet_name, onProgress,
       cols: Object.values(cols).map(c => c.col_no) });
+    // 見出しの検査: 役割を付けた列の見出しが、レイアウト登録時の見出しと一致するか
+    const hr = rows[lay.header_row - 1] || [];
+    const norm = v => text(v).normalize('NFKC').replace(/\s+/g, '');
+    const diffs = Object.values(cols).filter(c => c.header && norm(cell(hr, c.col_no)) !== norm(c.header))
+      .sort((a, b) => a.col_no - b.col_no)
+      .map(c => `${c.col_no}列目(${RM.ROLE_LABEL[c.role]}):ファイル「${text(cell(hr, c.col_no)) || '(空欄)'}」/ レイアウト「${c.header}」`);
+    if (diffs.length) {
+      throw new ReadError(`受領データの見出しが、使用するレイアウト「${lay.name}」と一致しません。別の形式のファイルか、レイアウトの割当が違う可能性があります。` +
+        `(${lay.header_row}行目の見出しを確認しました)` + diffs.slice(0, 6).join(' / ') + (diffs.length > 6 ? ` ほか${diffs.length - 6}列` : ''));
+    }
+    const fields = [['tdate', 'date'], ['qty'], ['wt'], ['amt']].filter(([k]) => cols[k]).map(([k, kind]) => ({
+      key: k, label: RM.ROLE_LABEL[k], kind: kind || 'num', fmt: cols[k].date_format, col: cols[k].col_no, header: cols[k].header }));
     const ck = code(cust), lines = [], errors = [];
     const stats = { total: 0, target: 0, skipped_blank: 0, other_cust: 0, out_of_period: 0, error: 0, conv_none: 0, conv_multi: 0 };
     for (let i = lay.data_start_row - 1; i < rows.length; i++) {
@@ -293,9 +335,9 @@
       }
       stats.total++;
       if (cols.cust && !isBlank(g('cust')) && code(g('cust')) !== ck) { stats.other_cust++; continue; }
-      let td, q, w, a;
-      try { td = date(g('tdate'), cols.tdate.date_format); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
-      catch (e) { stats.error++; errors.push({ file: '受領', row: i + 1, msg: e.message }); continue; }
+      const rv = readValues(g, fields);
+      if (rv.error) { stats.error++; errors.push({ file: '受領', row: i + 1, ...rv.error }); continue; }
+      const td = rv.values.tdate, q = rv.values.qty || 0, w = rv.values.wt || 0, a = rv.values.amt;
       if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
       const store = code(g('store')), pc = code(g('partner_code'));
       const [own, ownName, st, note] = conv.convert(store, pc);
@@ -343,7 +385,7 @@
     return {
       parent_id: parentId || null, cust, cust_name: custName, date_from: dateFrom, date_to: dateTo,
       sales_file: salesName, receipt_file: receiptName, layout_name: lay.name, created_at: now(),
-      stats: { sales: s.stats, receipt: r.stats, error_count: errors.length, layout_assigned: assigned, ledger_empty: !led.meta },
+      stats: { sales: s.stats, receipt: r.stats, error_count: errors.length, error_groups: groupErrors(errors), layout_assigned: assigned, ledger_empty: !led.meta },
       errors: errors.slice(0, MAX_ERRORS), sales: s.lines, receipt: r.lines,
     };
   };

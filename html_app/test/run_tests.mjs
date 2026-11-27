@@ -173,6 +173,29 @@ await test('sales layout check and receipt errors', async () => {
   assert.equal(d.stats.receipt.skipped_blank, 1);
 });
 
+await test('placeholder values, error details and wrong layout check', async () => {
+  assert.equal(RM.number('_'), 0); assert.equal(RM.number('-'), 0); assert.equal(RM.number('*'), 0); assert.equal(RM.number('▲1,000'), -1000);
+  // 受領に「_」(空欄の記号)と、読めない金額・日付の行を入れる
+  const H = RM.STANDARD_RECEIPT_HEADERS;
+  const row = o => Array.from({ length: 45 }, (_, i) => ({ v: o[i + 1] ?? null }));
+  const blob = await RM.writeXlsx([{ name: 'S', rows: [H.map(v => ({ v })),
+    row({ 2: '20261104', 3: '20005552', 5: '7227151', 8: 12720, 14: '2721327000000', 21: '_', 22: '_' }),
+    row({ 2: '20261104', 3: '20005552', 5: '7227152', 8: 'abc', 14: '2721327000000' }),
+    row({ 2: '20261104', 3: '20005552', 5: '7227153', 8: 'xyz', 14: '2721327000000' }),
+    row({ 2: '2026/13/45', 3: '20005552', 5: '7227154', 8: 100, 14: '2721327000000' })] }]);
+  const d = await RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's', salesBuf: rd('デモ_売上データ.xlsx'),
+    receiptName: 'r', receiptBuf: new Uint8Array(await blob.arrayBuffer()) });
+  assert.equal(d.stats.receipt.target, 1);   // 「_」は0として読める
+  assert.equal(d.stats.receipt.error, 3);
+  assert.equal(d.errors[0].msg, '金額(8列目「受領金額」)の値「abc」を数値として読めません');
+  const g = d.stats.error_groups;
+  assert.deepEqual([g[0].field, g[0].col, g[0].count, g[0].rows, g[0].values], ['金額', 8, 2, [3, 4], ['abc', 'xyz']]);
+  assert.deepEqual([g[1].field, g[1].reason, g[1].count], ['取引日付', '日付として読めない値', 1]);
+  // 間違ったレイアウトのファイル(売上データを受領データとして選んだ)は、見出しの検査で止める
+  await assert.rejects(RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's', salesBuf: rd('デモ_売上データ.xlsx'),
+    receiptName: 'r', receiptBuf: rd('デモ_売上データ.xlsx') }), /見出しが、使用するレイアウト「標準レイアウト」と一致しません.*2列目\(取引日付\):ファイル「伝票管理番号」/);
+});
+
 await test('layout from sample (header on row 3, named sheet)', async () => {
   const blob = await RM.writeXlsx([{ name: '表紙', rows: [[{ v: 'x' }]] }, { name: '明細', rows: [[{ v: 'K社 受領明細' }], [],
     ['納品日', '発注番号', 'JAN', '品名', '数量', '金額'].map(v => ({ v })),
