@@ -47,6 +47,8 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     return true;
   }
+  const head = (title, sub, actions = '', back = '') => `<div class="head"><div>${back}<h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${actions ? `<div class="right">${actions}</div>` : ''}</div>`;
+  const judgeBadge = m => `<span class="b ${m.total_judge === 'ok' ? 'b-ok' : 'b-diff'}">${m.total_judge === 'ok' ? '一致' : '不一致'}</span>`;
   const dcell = (fn, v) => `<span class="${v === 0 ? 'zero' : v < 0 ? 'neg' : 'pos'}">${h(signed(fn, v))}</span>`;
   const dt = s => h((s || '').replace(/-/g, '/'));
   const dropBox = (name, label, accept) => `<label class="drop">${h(label)}<input type="file" name="${name}" accept="${accept}" required><span class="fname"></span></label>`;
@@ -65,21 +67,45 @@
       ${page > 1 ? `<a class="btn btn-s" href="${href(page - 1)}">前へ</a>` : ''}<span>${page} / ${pages}</span>${page < pages ? `<a class="btn btn-s" href="${href(page + 1)}">次へ</a>` : ''}</div></div>`;
   }
 
+  // ---------------------------------------------------------------- ホーム(ダッシュボード)
+  async function pageHome() {
+    const ms = await RM.listMatches(), meta = await RM.ledgerMeta(), lays = await RM.layouts(), asg = await RM.assignments();
+    const unc = ms.reduce((t, m) => t + (m.unchecked_rows || 0), 0), uncM = ms.filter(m => m.unchecked_rows > 0).length;
+    const steps = [
+      { no: '01', name: '販売台帳の取込', done: !!meta, text: meta ? `取込済(${fAmt(meta.loaded_rows)}件)` : '未取込', href: '#/ledger' },
+      { no: '02', name: '受領レイアウト', done: lays.some(l => l.is_standard), text: `標準+割当 ${asg.length}件`, href: '#/layouts' },
+      { no: '03', name: '照合の実行', done: ms.length > 0, text: ms.length ? `${ms.length}件 照合済` : '未実施', href: '#/new' },
+      { no: '04', name: '差異の確認', done: ms.length > 0 && unc === 0, text: !ms.length ? '未実施' : unc ? `未確認 ${unc}件` : 'すべて確認済', href: '#/matches' + (unc ? '?unchecked=1' : '') },
+    ];
+    const pct = Math.round(steps.filter(x => x.done).length / steps.length * 100);
+    const recent = ms.slice(0, 5);
+    return { nav: 'list', title: 'ホーム', html: `
+${head('作業ダッシュボード', '売上データと受領データの照合状況を確認できます', '<a href="#/new" class="btn btn-p">+ 照合データを取り込む</a>')}
+<div class="cards">
+  <div class="card stat"><div class="k">販売台帳</div>${meta ? `<div class="v">${fAmt(meta.loaded_rows)}<span class="sub"> 件</span></div><div class="d">最終取込 ${dt(meta.imported_at)}</div>` : '<div class="v warnv">未取込</div><div class="d"><a href="#/ledger">取り込んでください</a></div>'}</div>
+  <div class="card stat"><div class="k">受領レイアウト</div><div class="v">${lays.length}<span class="sub"> 件</span></div><div class="d">得意先割当 ${asg.length}件</div></div>
+  <div class="card stat"><div class="k">照合</div><div class="v">${ms.length}<span class="sub"> 件</span></div><div class="d">不一致 ${ms.filter(m => m.total_judge !== 'ok').length}件</div></div>
+  <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v ${unc ? 'warnv' : ''}">${unc}<span class="sub"> 件</span></div><div class="d">${uncM}照合にまたがる</div></div>
+  <div class="card wide2"><h2>作業ステップ</h2>
+    <div class="steps">${steps.map(x => `<a class="stepc ${x.done ? 'done' : ''}" href="${x.href}"><b>${x.no} ${x.name}</b><span>${x.done ? '✓ ' : ''}${h(x.text)}</span></a>`).join('')}</div>
+    <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="作業の進み具合"><i style="width:${pct}%"></i></div></div>
+  <div class="card wide2"><div class="row"><h2>最近の照合</h2><div class="right"><a href="#/matches" class="btn btn-s">すべて見る</a></div></div>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>販売先</th><th>期間</th><th class="n">差異(金額)</th><th class="n">未確認</th><th>判定</th></tr></thead>
+    <tbody>${recent.map(m => `<tr><td><a href="#/match/${m.id}">${h(m.cust)} ${h(m.cust_name || '')}</a></td><td>${fmtDate(m.date_from).slice(5)}〜${fmtDate(m.date_to).slice(5)}</td>
+      <td class="n">${h(signed(fAmt, m.total_diff_amt || 0))}</td><td class="n">${m.unchecked_rows || 0}</td><td>${judgeBadge(m)}</td></tr>`).join('') ||
+      '<tr><td colspan="5" class="zero">照合はまだありません。</td></tr>'}</tbody></table></div></div>
+</div>` };
+  }
+
   // ---------------------------------------------------------------- 照合一覧
   async function pageList(q) {
     const f = { cust: q.get('cust') || '', dateFrom: '', dateTo: '', unchecked: q.get('unchecked') === '1' };
     try { if (q.get('from')) f.dateFrom = RM.date(q.get('from')); if (q.get('to')) f.dateTo = RM.date(q.get('to')); } catch (_) { /* 無効な日付は無視 */ }
     const rows = await RM.listMatches(f), all = await RM.listMatches();
-    const meta = await RM.ledgerMeta(), lays = await RM.layouts(), asg = await RM.assignments();
     const unc = all.reduce((t, m) => t + (m.unchecked_rows || 0), 0), uncM = all.filter(m => m.unchecked_rows > 0).length;
     const custs = await customers();
-    return { nav: 'list', title: '照合一覧', html: `
-<div class="row"><h1>照合一覧</h1><div class="right"><a href="#/new" class="btn btn-p">+ 新規照合</a></div></div>
-<div class="cards">
-  <div class="card stat"><div class="k">販売台帳(最終取込)</div>${meta ? `<div class="v">${dt(meta.imported_at)}</div><div class="d">有効 ${fAmt(meta.loaded_rows)}件(削除区分9を除く)</div>` : '<div class="v warnv">未取込</div><div class="d"><a href="#/ledger">販売台帳を取り込んでください</a></div>'}</div>
-  <div class="card stat"><div class="k">受領レイアウト</div><div class="v">${lays.length}件</div><div class="d">得意先割当 ${asg.length}件</div></div>
-  <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v ${unc ? 'warnv' : ''}">${unc}件</div><div class="d">${uncM}照合にまたがる</div></div>
-</div>
+    return { nav: 'matches', title: '照合一覧', html: `
+${head('照合一覧', `全 ${all.length}件 ・ 未確認の差異 ${unc}件(${uncM}照合)`, '<a href="#/new" class="btn btn-p">+ 新規照合</a>')}
 <section class="card">
   <form class="filters" data-form="list-filter">
     <label class="lbl">販売先<select name="cust" class="fld"><option value="">すべて</option>${custs.map(([c, n]) => opt(c, `${c} ${n}`, c === f.cust)).join('')}</select></label>
@@ -92,7 +118,7 @@
     <thead><tr><th>販売先</th><th>期間(取引日付)</th><th>照合日時</th><th>合計判定</th><th class="n">合計差異(金額)</th><th class="n">不一致(伝票別)</th><th class="n">未確認</th><th>操作</th></tr></thead>
     <tbody>${rows.map(r => `<tr>
       <td>${h(r.cust)} ${h(r.cust_name || '')}</td><td>${fmtDate(r.date_from)}〜${fmtDate(r.date_to)}</td><td>${dt(r.matched_at)}</td>
-      <td><span class="b ${r.total_judge === 'ok' ? 'b-ok' : 'b-diff'}">${r.total_judge === 'ok' ? '一致' : '不一致'}</span></td>
+      <td>${judgeBadge(r)}</td>
       <td class="n">${h(signed(fAmt, r.total_diff_amt || 0))}</td><td class="n">${r.slip_diff_rows || 0}</td><td class="n">${r.unchecked_rows || 0}</td>
       <td><div class="row" style="gap:6px"><a href="#/match/${r.id}" class="btn btn-s">開く</a>
         <button type="button" class="btn btn-s" data-act="report" data-id="${r.id}">Excel出力</button>
@@ -109,7 +135,7 @@
     const std = (await RM.layouts()).find(l => l.is_standard);
     const lmap = Object.fromEntries((await RM.layouts()).map(l => [l.id, l.name]));
     return { nav: 'new', title: parent ? '再取込・再照合' : '新規照合', html: `
-<h1>${parent ? '再取込・再照合' : '新規照合'}</h1>
+${head(parent ? '再取込・再照合' : '新規照合', '販売先と期間を指定して、売上データと受領データを取り込みます')}
 ${meta ? '' : '<div class="msg msg-warn">販売台帳が未取込です。受領データの商品コードがすべて「変換不可」になります。先に<a href="#/ledger">販売台帳</a>を取り込んでください。</div>'}
 <form data-form="new" style="display:flex;flex-direction:column;gap:18px;max-width:1100px">
 ${parent ? `<input type="hidden" name="parent" value="${parent.id}">` : ''}
@@ -145,7 +171,7 @@ ${parent ? `<input type="hidden" name="parent" value="${parent.id}">` : ''}
       <div>対象外</div><div>他の販売先 ${fAmt(x.other_cust)}行 / 期間外 ${fAmt(x.out_of_period)}行</div>
       <div>読み飛ばし</div><div>${fAmt(x.skipped_blank)}行(空行・合計行など)</div><div>エラー</div><div>${x.error ? `<span class="neg">${x.error}行</span>` : 'なし'}</div></div>`;
     return { nav: 'new', title: '取込結果の確認', html: `
-<h1>取込結果の確認</h1>
+${head('取込結果の確認', '件数・エラー・変換警告を確認してから照合を実行します')}
 <div class="info">
   <div><div class="k">販売先</div><div class="v">${h(m.cust)} ${h(m.cust_name)}</div></div>
   <div><div class="k">期間(取引日付)</div><div class="v">${fmtDate(m.date_from)}〜${fmtDate(m.date_to)}</div></div>
@@ -170,7 +196,7 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
   // ---------------------------------------------------------------- 照合結果
   async function pageResult(id, q) {
     const m = await RM.getMatch(id);
-    if (!m) return { redirect: '/', flash: { err: '照合が見つかりません。' } };
+    if (!m) return { redirect: '/matches', flash: { err: '照合が見つかりません。' } };
     let view = q.get('view') || 'day';
     if (!RM.VIEWS[view] && view !== 'warn') view = 'day';
     const onlyDiff = q.get('only_diff') === '1', onlyUnc = q.get('only_unc') === '1', kw = (q.get('q') || '').trim();
@@ -228,11 +254,9 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     ${pager(page, pages, total, href)}
     <p class="note" style="margin-top:8px">変換不可の行は、相手先商品コードの頭に「[未変換]」を付けて照合しています。販売台帳に登録してから「再取込・再照合」すると解消します。</p></div>`;
     }
-    return { nav: 'list', title: '照合結果', html: `
-<div class="row"><div><a href="#/" class="sub">← 照合一覧</a>
-  <h1>照合結果:${h(m.cust)} ${h(m.cust_name || '')} ・ ${fmtDate(m.date_from)}〜${fmtDate(m.date_to)}</h1>
-  <div class="sub">${h(m.sales_file)}(${fAmt(t.s_rows)}行) / ${h(m.receipt_file)}(${fAmt(t.r_rows)}行・${h(m.layout_name)}) ・ 照合日時 ${dt(m.matched_at)}</div></div>
-  <div class="right"><a href="#/new?parent=${id}" class="btn">再取込・再照合</a><button type="button" class="btn btn-p" data-act="report" data-id="${id}">Excelレポート出力</button></div></div>
+    return { nav: 'matches', title: '照合結果', html: `
+${head(`照合結果:${h(m.cust)} ${h(m.cust_name || '')}`, `${fmtDate(m.date_from)}〜${fmtDate(m.date_to)} ・ ${h(m.sales_file)}(${fAmt(t.s_rows)}行) / ${h(m.receipt_file)}(${fAmt(t.r_rows)}行・${h(m.layout_name)}) ・ 照合日時 ${dt(m.matched_at)}`,
+  `<a href="#/new?parent=${id}" class="btn">再取込・再照合</a><button type="button" class="btn btn-p" data-act="report" data-id="${id}">Excelレポート出力</button>`, '<a href="#/matches" class="back">← 照合一覧</a>')}
 <section class="card" aria-label="合計の照合"><div class="row" style="align-items:center;gap:20px">
   <div style="min-width:140px"><div class="sub">合計の判定</div><span class="b ${t.badge} big">${h(t.judge_label)}</span></div>
   <div class="tblwrap" style="flex:1 1 560px;border:0"><table class="tbl" style="font-size:14px">
@@ -245,7 +269,7 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
 
   async function pageDetail(id, q) {
     const m = await RM.getMatch(id), view = q.get('view'), key = q.get('key') || '';
-    if (!m || !RM.VIEWS[view]) return { redirect: '/', flash: { err: '照合が見つかりません。' } };
+    if (!m || !RM.VIEWS[view]) return { redirect: '/matches', flash: { err: '照合が見つかりません。' } };
     let d;
     try { d = await RM.detail(id, view, key); } catch (_) { return { redirect: '/match/' + id, flash: { err: '明細のキーが不正です。' } }; }
     if (!d.row) return { redirect: '/match/' + id + '?view=' + view, flash: { err: '該当する行がありません。' } };
@@ -257,12 +281,12 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
         : `<td>${h(x.slip_no)}</td><td>${h(x.own_code)}</td><td>${h(x.name)}</td>`}
         <td class="n">${fQty(x.qty)}</td><td class="n">${fWt(x.wt)}</td><td class="n">${fAmt(x.amt)}</td></tr>`).join('') || `<tr><td colspan="9" class="zero">${isR ? '受領' : '売上'}側に明細はありません</td></tr>`}</tbody>
       ${lines.length ? `<tfoot><tr><td colspan="6">計</td><td class="n">${fQty(tot[1])}</td><td class="n">${fWt(tot[2])}</td><td class="n">${fAmt(tot[0])}</td></tr></tfoot>` : ''}</table></div></section>`;
-    return { nav: 'list', title: '明細', html: `
-<div><a href="${base}?view=${view}" class="sub">← 照合結果(${V.label})に戻る</a><h1>明細:${V.k1} ${h(r.k1)}${r.k2 ? ' ・ ' + h(r.k2) : ''}</h1></div>
+    return { nav: 'matches', title: '明細', html: `
+${head(`明細:${V.k1} ${h(r.k1)}`, r.k2 ? h(r.k2) : '', '', `<a href="${base}?view=${view}" class="back">← 照合結果(${V.label})に戻る</a>`)}
 <div class="info"><div><div class="k">販売先</div><div class="v">${h(m.cust)} ${h(m.cust_name || '')}</div></div>
   <div><div class="k">判定</div><span class="b ${r.badge}">${h(r.judge_label)}</span></div>
   <div><div class="k">差異(売上−受領)</div><div class="v">金額 ${dcell(fAmt, r.d[0])} / 数量 ${dcell(fQty, r.d[1])} / 重量 ${dcell(fWt, r.d[2])}</div></div></div>
-<div style="display:flex;flex-direction:column;gap:16px">${tbl('売上明細(自社)', 'var(--primary-d)', d.sales, false, r.s)}${tbl('受領明細(得意先)', '#7A3A12', d.receipt, true, r.r)}</div>
+<div style="display:flex;flex-direction:column;gap:16px">${tbl('売上明細(自社)', '#3B5CC4', d.sales, false, r.s)}${tbl('受領明細(得意先)', '#9A4A16', d.receipt, true, r.r)}</div>
 ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class="tblwrap"><table class="tbl">
   <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th>判定</th></tr></thead>
   <tbody>${d.products.map(p => `<tr class="${p.row_cls}"><td>${h(p.key[0])}</td><td>${h(p.name)}</td><td class="n">${p.s ? fAmt(p.s[0]) : '—'}</td><td class="n">${p.r ? fAmt(p.r[0]) : '—'}</td>
@@ -292,7 +316,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     const view = rows.slice((page - 1) * per, page * per);
     const href = p => '#/ledger' + qs({ cust, q: kw, dup: dup ? 1 : '', page: p });
     return { nav: 'ledger', title: '販売台帳', html: `
-<h1>販売台帳</h1>
+${head('販売台帳', '受領データの相手先商品コードを自社商品コードに変換するためのマスタです')}
 <div class="grid2">
   <section class="card"><h2>取込(全件入れ替え)</h2>
     <form data-form="ledger" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', '販売台帳のExcelファイル(.xlsx)をここにドラッグ&ドロップ、またはファイルを選択', '.xlsx')}
@@ -330,7 +354,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     const lays = await RM.layouts(), asg = await RM.assignments(), custs = await RM.ledgerCustomers();
     const cnt = id => asg.filter(a => a.layout_id === id).length, lname = Object.fromEntries(lays.map(l => [l.id, l.name]));
     return { nav: 'layouts', title: '受領レイアウト・得意先割当', html: `
-<h1>受領レイアウト・得意先割当</h1>
+${head('受領レイアウト・得意先割当', '得意先ごとの受領データの形式と、どの得意先にどの形式を使うかを設定します')}
 <section class="card"><h2>受領レイアウト</h2>
   <div class="tblwrap"><table class="tbl"><thead><tr><th>レイアウト名</th><th>形式</th><th>文字コード</th><th class="n">列数</th><th>見出し行/開始行</th><th class="n">割当得意先</th><th>更新日時</th><th>操作</th></tr></thead>
   <tbody>${lays.map(l => `<tr><td>${l.is_standard ? '<span class="b b-std">標準</span> ' : ''}${h(l.name)}</td>
@@ -365,7 +389,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     const all = q.get('all') === '1', used = l.columns.filter(c => c.role).map(c => c.role);
     const problems = RM.validateRoles(l.columns), pv = RM.previewLayout(l), usedRoles = RM.ROLES.filter(r => used.includes(r[0]));
     return { nav: 'layouts', title: '受領レイアウト編集', html: `
-<div><a href="#/layouts" class="sub">← 受領レイアウト一覧</a><h1>受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class="b b-std">標準</span>' : ''}</h1></div>
+${head(`受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class="b b-std">標準</span>' : ''}`, '各列を照合で何として使うか(役割)を設定します', '', '<a href="#/layouts" class="back">← 受領レイアウト一覧</a>')}
 <form data-form="layout-save" data-id="${id}" style="display:flex;flex-direction:column;gap:18px">
 <section class="card"><h2>1. ファイル形式</h2><div class="filters">${fileFields(l, false)}</div>
   <div class="sub">サンプル:${h(l.sample_file || '(初期登録のため見出しのみ)')}(${l.columns.length}列)</div></section>
@@ -394,7 +418,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     const ms = await RM.listMatches(), meta = await RM.ledgerMeta();
     const last = (await RM.db.get('kv', 'last_backup')) || null;
     return { nav: 'backup', title: 'バックアップ', html: `
-<h1>バックアップ・復元</h1>
+${head('バックアップ・復元', 'データはこのPCのブラウザ内に保存されています')}
 <div class="msg msg-warn">データはこのPCのブラウザ内に保存されています。ブラウザの「閲覧データの削除」で「Cookieとサイトデータ」を消すと、データも消えます。定期的にバックアップしてください。</div>
 <div class="grid2">
   <section class="card"><h2>バックアップ(ファイルに書き出す)</h2>
@@ -415,7 +439,8 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     let res;
     try {
       let m;
-      if (path === '/' || path === '') res = await pageList(q);
+      if (path === '/' || path === '') res = await pageHome();
+      else if (path === '/matches') res = await pageList(q);
       else if (path === '/new') res = await pageNew(q);
       else if (path === '/review') res = pageReview();
       else if ((m = /^\/match\/(\d+)$/.exec(path))) res = await pageResult(+m[1], q);
@@ -460,7 +485,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
     delimiter: String(fd.get('delimiter')), sheet_name: String(fd.get('sheet_name') || ''), header_row: parseInt(fd.get('header_row'), 10), data_start_row: parseInt(fd.get('data_start_row'), 10) });
 
   const FORMS = {
-    'list-filter': async (f, fd) => go('/' + qs({ cust: fd.get('cust'), from: fd.get('from'), to: fd.get('to'), unchecked: fd.get('unchecked') })),
+    'list-filter': async (f, fd) => go('/matches' + qs({ cust: fd.get('cust'), from: fd.get('from'), to: fd.get('to'), unchecked: fd.get('unchecked') })),
     'ledger-filter': async (f, fd) => go('/ledger' + qs({ cust: fd.get('cust'), q: fd.get('q'), dup: fd.get('dup') })),
     'result-filter': async (f, fd) => go(f.dataset.base.slice(1) + qs({ view: f.dataset.view, only_diff: fd.get('only_diff'), only_unc: fd.get('only_unc'), q: fd.get('q') })),
     'new': async (f, fd) => {
@@ -542,7 +567,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
       if (ok) { flash = { msg: 'Excelレポートを保存しました。' }; render(); }
     },
     'delete-match': async el => { if (confirm('この照合を削除します。よろしいですか?')) { await RM.deleteMatch(+el.dataset.id); flash = { msg: '照合を削除しました。' }; render(); } },
-    'review-cancel': async () => { const p = draft && draft.parent_id; draft = null; go(p ? '/match/' + p : '/', { msg: '取込を中止しました。' }); },
+    'review-cancel': async () => { const p = draft && draft.parent_id; draft = null; go(p ? '/match/' + p : '/matches', { msg: '取込を中止しました。' }); },
     'review-confirm': async () => {
       if (!draft) return go('/new');
       busy(true, '照合しています…');

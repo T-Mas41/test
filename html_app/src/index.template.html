@@ -13,24 +13,22 @@
 </head>
 <body>
 <div class="app">
-<header class="top">
-  <a class="name" href="#/">受領照合</a>
-  <span class="badge">ローカル専用 ・ 外部通信なし</span>
-  <span class="where">データ保存先:このPCのブラウザ内 ・ 版 __VERSION__</span>
-</header>
-<div class="body">
-<nav class="nav" aria-label="メインメニュー">
-  <div class="grp">照合業務</div>
-  <a href="#/" data-nav="list">照合一覧</a>
-  <a href="#/new" data-nav="new">新規照合</a>
-  <div class="grp">マスタ</div>
-  <a href="#/ledger" data-nav="ledger">販売台帳</a>
-  <a href="#/layouts" data-nav="layouts">受領レイアウト・得意先割当</a>
-  <div class="grp">データ管理</div>
-  <a href="#/backup" data-nav="backup">バックアップ・復元</a>
-</nav>
+<aside class="side">
+  <a class="brand" href="#/">受領照合</a>
+  <nav class="nav" aria-label="メインメニュー">
+    <div class="grp">照合業務</div>
+    <a href="#/" data-nav="list">ホーム</a>
+    <a href="#/new" data-nav="new">新規照合</a>
+    <a href="#/matches" data-nav="matches">照合一覧</a>
+    <div class="grp">マスタ</div>
+    <a href="#/ledger" data-nav="ledger">販売台帳</a>
+    <a href="#/layouts" data-nav="layouts">受領レイアウト・割当</a>
+    <div class="grp">データ管理</div>
+    <a href="#/backup" data-nav="backup">バックアップ・復元</a>
+  </nav>
+  <div class="side-foot"><span class="lock">ローカル専用</span> <span class="lock">外部通信なし</span><br>データ保存先:このPCのブラウザ内<br>版 __VERSION__</div>
+</aside>
 <main class="main" id="view"><div class="sub">読み込んでいます…</div></main>
-</div>
 </div>
 <div id="busy" class="busy" hidden><div class="busy-box"><div class="spinner" aria-hidden="true"></div><div id="busy-text">処理しています…</div></div></div>
 <noscript><p>JavaScript を有効にしてください。</p></noscript>
