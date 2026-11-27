@@ -1270,9 +1270,11 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   };
 
   // ================================================================ Excelレポート
+  // ファイル名: 受領照合_販売先コード_販売先名_照合対象期間.xlsx(ファイル名に使えない文字は全角に置き換え)
   RM.reportFileName = m => {
-    const d = new Date(), p = n => String(n).padStart(2, '0');
-    return `受領照合_${m.cust}_${m.date_from.replace(/-/g, '')}-${m.date_to.replace(/-/g, '')}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.xlsx`;
+    const safe = v => String(v || '').trim().replace(/[\\/:*?"<>|]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0)).replace(/\s+/g, ' ');
+    const parts = ['受領照合', safe(m.cust), safe(m.cust_name), `${m.date_from.replace(/-/g, '')}-${m.date_to.replace(/-/g, '')}`].filter(Boolean);
+    return parts.join('_') + '.xlsx';
   };
   /** 切り口ごとの比較項目(画面・Excelで共通)。並びは 数量・重量・金額 で統一。idx は [金額,数量,重量] の位置 */
   RM.measures = view => (RM.VIEWS[view] && RM.VIEWS[view].full)

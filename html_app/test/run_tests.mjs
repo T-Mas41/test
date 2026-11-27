@@ -96,6 +96,9 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.equal(m.slip_diff_rows, 4); assert.equal(m.unchecked_rows, 3); assert.equal(m.total_diff_amt, -4082);
   assert.equal((await RM.aggregate(id, 'slip')).find(r => r.k1 === '7227290').comment, '受領漏れ連絡済');
 
+  assert.equal(RM.reportFileName(m), '受領照合_20005525_H_20261101-20261110.xlsx');
+  assert.equal(RM.reportFileName({ cust: '1', cust_name: 'A/B:C', date_from: '2026-11-01', date_to: '2026-11-30' }), '受領照合_1_A\uff0fB\uff1aC_20261101-20261130.xlsx');
+  assert.equal(RM.reportFileName({ cust: '1', cust_name: '', date_from: '2026-11-01', date_to: '2026-11-30' }), '受領照合_1_20261101-20261130.xlsx');
   // Excelレポート(openpyxlでの検証は別スクリプト)
   const blob = await RM.buildReport(id);
   fs.writeFileSync(path.join(process.env.REPORT_OUT || '/tmp', 'report_test.xlsx'), Buffer.from(await blob.arrayBuffer()));
