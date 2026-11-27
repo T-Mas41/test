@@ -179,3 +179,10 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 .tbl td.amt.zero{color:#A29EB4;font-weight:400}
 /* 長い文字列の列で他の列が押し出されないように */
 .tbl.compact td.txt{max-width:240px;overflow:hidden;text-overflow:ellipsis}
+/* 照合結果の検索条件 */
+.panel .bar .sep{width:1px;height:26px;background:var(--line)}
+.panel .bar select.fld-s{height:32px}
+/* ホームの作業ステップ(状態表示なし) */
+.vsteps li:not(:last-child)::after{background:#E5DDFF}
+/* 文字の列は長いと折り返し(列が多い切り口でも判定列まで収める) */
+.tbl.compact td.txt{white-space:normal;max-width:190px;min-width:60px;line-height:1.35}

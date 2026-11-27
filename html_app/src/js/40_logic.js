@@ -283,6 +283,7 @@
     day: { label: '日別', keys: ['tdate'], heads: ['取引日付'], full: false },
     store: { label: '日別店別', keys: ['tdate', 'store'], heads: ['取引日付', '店舗コード', '店舗名'], full: false },
     slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗コード', '店舗名'], full: false },
+    dsi: { label: '日別伝票商品別', keys: ['tdate', 'order_no', 'own_code'], heads: ['取引日付', '相手先注文番号', '店舗コード', '店舗名', '自社商品コード', '商品名'], full: true },
     item: { label: '日別商品別', keys: ['tdate', 'own_code'], heads: ['取引日付', '自社商品コード', '商品名'], full: true },
   };
   for (const v of Object.values(RM.VIEWS)) v.k1 = v.heads[0];
@@ -399,21 +400,28 @@
     for (const x of l.receipt) if (x.store && x.store_name && !sn.has(x.store)) sn.set(x.store, x.store_name);
     for (const [k, v] of led) if (!sn.has(k)) sn.set(k, v);
     const rows = aggregateKeys(l, v.keys, null, v.full);
+    const short = (arr, all) => (arr.length > 3 ? `${arr.slice(0, 3).join('、')} …他${arr.length - 3}店` : all);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
+      const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
+      const dates = [...new Set([...(s ? s.dates : []), ...(r ? r.dates : [])])].sort();
+      // 検索条件用(日付・店舗・注文番号)
+      row.fdates = dates; row.fstores = stores; row.forder = view === 'slip' ? k[0] : view === 'dsi' ? k[1] : '';
       const sname = (view === 'store' ? sn.get(k[1]) : '') || (s && s.sname) || (r && r.sname) || '';
+      const iname = (s && s.iname) || (r && r.iname) || '';
+      const names = stores.map(x => sn.get(x) || '').filter(Boolean);
+      const nm = names.join('、') || (s && s.sname) || (r && r.sname) || '';
       if (view === 'day') row.cells = [fmtDate(k[0])];
       else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
-      else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
-      else {
+      else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], iname];
+      else if (view === 'dsi') {
+        row.cells = [fmtDate(k[0]), k[1] || '(注文番号なし)', short(stores, stores.join('、')), short(names, nm), k[2], iname];
+        row.tips = ['', '', stores.length > 3 ? stores.join('、') : '', names.length > 3 ? nm : '', '', ''];
+      } else {
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
-        const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
-        const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        const names = stores.map(x => sn.get(x) || '').filter(Boolean);
-        const nm = names.join('、') || (s && s.sname) || (r && r.sname) || '';
+        const dtext = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         // 店舗が多い伝票は短く表示(全店舗は tips に入れ、画面ではマウスを乗せると表示)
-        const short = (arr, all) => (arr.length > 3 ? `${arr.slice(0, 3).join('、')} …他${arr.length - 3}店` : all);
-        row.cells = [k[0] || '(注文番号なし)', dates, short(stores, stores.join('、')), short(names, nm)];
+        row.cells = [k[0] || '(注文番号なし)', dtext, short(stores, stores.join('、')), short(names, nm)];
         row.tips = ['', '', stores.length > 3 ? stores.join('、') : '', names.length > 3 ? nm : ''];
       }
       row.k1 = row.cells[0];
@@ -421,6 +429,9 @@
       const c = cf[view + '|' + row.key_str];
       row.checked = !!(c && c.checked); row.comment = c ? c.comment : ''; row.updated_at = c ? c.updated_at : '';
     }
+    // 伝票番号別は 日付 → 注文番号 の順に並べる(日付は伝票内の最も早い日付)
+    if (view === 'slip') rows.sort((a, b) => ((a.fdates[0] || '') + '|' + a.key[0]).localeCompare((b.fdates[0] || '') + '|' + b.key[0], 'ja', { numeric: true }));
+    rows.storeNames = sn;
     return rows;
   };
   RM.totals = async id => {
@@ -535,7 +546,7 @@
       for (const arr of [tot.s, tot.r, tot.d]) for (const x of ms) totRow.push({ v: mval(arr, x), s: st(0, qfmt(x, mval(arr, x)), 8) });
       totRow.push({ v: tot.d[0] === 0 ? '一致' : '差異あり', s: st(0, 0, 8) });
       rows.push(totRow);
-      const kw = { day: [14], store: [14, 12, 20], slip: [16, 14, 12, 20], item: [14, 12, 30] }[view];
+      const kw = { day: [14], store: [14, 12, 20], slip: [16, 14, 12, 20], dsi: [12, 14, 12, 16, 12, 28], item: [14, 12, 30] }[view];
       sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, freezeRows: hr, filter: true, rows,
         filterRef: `A${hr}:${RM.colName(head.length)}${last}`,
         widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10]) });

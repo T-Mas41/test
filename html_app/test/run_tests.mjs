@@ -87,7 +87,13 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.equal(RM.compare(null, { a: -10, q: 0, w: 0 }).judge, 'ronly');
   assert.deepEqual(new Set((await RM.warnings(id)).map(w => w.conv_status)), new Set(['none', 'multi']));
   const cnt = await RM.counts(id);
-  assert.deepEqual(cnt, { day: 4, store: 4, slip: 4, item: 6, warn: 2 });
+  assert.deepEqual(cnt, { day: 4, store: 4, slip: 4, dsi: 8, item: 6, warn: 2 });
+  // 伝票番号別は 日付 → 注文番号 の順
+  assert.deepEqual((await RM.aggregate(id, 'slip')).map(r => r.k1), ['7218832', '7227151', '7227400', '7227188', '7227290', '7227295', '7227302']);
+  // 日別伝票商品別: 店舗名も表示
+  const dsi = Object.fromEntries((await RM.aggregate(id, 'dsi')).map(r => [r.key_str, r]));
+  assert.deepEqual(dsi['2026-11-04|7227151|000362114'].cells, ['2026/11/04', '7227151', '20005552', '長野店', '000362114', '信州牛うす切り肉(もも)']);
+  assert.equal(dsi['2026-11-04|7227151|000362114'].judge, 'diff');
   const det = await RM.detail(id, 'slip', '7227151');
   assert.equal(det.sales.length, 2); assert.equal(det.receipt.length, 1); assert.equal(det.receipt[0].conv_status, 'ok');
 
@@ -112,6 +118,7 @@ await test('full flow (same expectations as Python version)', async () => {
   const totalRow = back[back.length - 1];
   assert.equal(totalRow[1], '合計(7件)');
   assert.deepEqual(totalRow.slice(5, 8), [74862, 78944, -4082]);
+  assert.ok((await RM.readXlsx(buf, { sheetName: '日別伝票商品別' }))[3].includes('店舗名'));
   const itemSheet = await RM.readXlsx(buf, { sheetName: '日別商品別' });
   assert.deepEqual(itemSheet[3].slice(4, 13), ['売上 数量', '売上 重量', '売上 金額', '受領 数量', '受領 重量', '受領 金額', '差異 数量', '差異 重量', '差異 金額']);
   const itemTotal = itemSheet[itemSheet.length - 1];

@@ -92,13 +92,10 @@
     const ms = await RM.listMatches(), meta = await RM.ledgerMeta(), lays = await RM.layouts(), asg = await RM.assignments();
     const unc = ms.reduce((t, m) => t + (m.unchecked_rows || 0), 0), uncM = ms.filter(m => m.unchecked_rows > 0).length;
     const steps = [
-      { no: '01', name: '販売台帳の取込', done: !!meta, text: meta ? `取込済(${fAmt(meta.loaded_rows)}件)` : '未取込', href: '#/ledger' },
-      { no: '02', name: '受領レイアウト', done: lays.some(l => l.is_standard), text: `標準+割当 ${asg.length}件`, href: '#/layouts' },
-      { no: '03', name: '照合の実行', done: ms.length > 0, text: ms.length ? `${ms.length}件 照合済` : '未実施', href: '#/new' },
-      { no: '04', name: '差異の確認', done: ms.length > 0 && unc === 0, text: !ms.length ? '未実施' : unc ? `未確認 ${unc}件` : 'すべて確認済', href: '#/matches' + (unc ? '?unchecked=1' : '') },
+      { name: '販売台帳の取込', text: '基幹システムから出力した販売台帳(Excel)を取り込みます。台帳が変わったときに取り込み直します。', href: '#/ledger', btn: '販売台帳へ' },
+      { name: '照合の実行', text: '期間を指定し、売上データと受領データを取り込んで照合します。', href: '#/new', btn: '新規照合へ' },
+      { name: '差異の確認', text: '照合結果で差異を確認し、明細画面で確認済み・コメントを記録します。Excelレポートを出力します。', href: '#/matches', btn: '照合一覧へ' },
     ];
-    const pct = Math.round(steps.filter(x => x.done).length / steps.length * 100);
-    const cur = steps.findIndex(x => !x.done);
     const recent = ms.slice(0, 5);
     return { nav: 'list', title: 'ホーム', html: `
 ${head('作業ダッシュボード', '売上データと受領データの照合状況を確認できます', '<a href="#/new" class="btn btn-p">+ 照合データを取り込む</a>')}
@@ -107,13 +104,11 @@ ${head('作業ダッシュボード', '売上データと受領データの照�
   <div class="card stat"><div class="k">受領レイアウト</div><div class="v">${lays.length}<span class="sub"> 件</span></div><div class="d">得意先割当 ${asg.length}件</div></div>
   <div class="card stat"><div class="k">照合</div><div class="v">${ms.length}<span class="sub"> 件</span></div><div class="d">不一致 ${ms.filter(m => m.total_judge !== 'ok').length}件</div></div>
   <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v ${unc ? 'warnv' : ''}">${unc}<span class="sub"> 件</span></div><div class="d">${uncM}照合にまたがる</div></div>
-  <div class="card wide2"><div class="row"><h2>作業ステップ</h2><span class="right sub">進み具合 ${pct}%</span></div>
-    <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="作業の進み具合"><i style="width:${pct}%"></i></div>
-    <ol class="vsteps">${steps.map((x, i) => `<li class="${x.done ? 'done' : i === cur ? 'current' : ''}">
-      <span class="num">${x.done ? '✓' : i + 1}</span>
+  <div class="card wide2"><h2>作業ステップ</h2>
+    <ol class="vsteps">${steps.map((x, i) => `<li class="current">
+      <span class="num">${i + 1}</span>
       <div class="vs-body"><b>${x.name}</b><span>${h(x.text)}</span></div>
-      <span class="vs-state">${x.done ? '完了' : i === cur ? '次の作業' : '未実施'}</span>
-      <a class="btn btn-s ${i === cur ? 'btn-p' : ''}" href="${x.href}">${i === cur ? '進める' : '開く'}</a></li>`).join('')}</ol></div>
+      <a class="btn btn-s" href="${x.href}">${x.btn}</a></li>`).join('')}</ol></div>
   <div class="card wide2"><div class="row"><h2>最近の照合</h2><div class="right"><a href="#/matches" class="btn btn-s">すべて見る</a></div></div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>販売先</th><th>期間</th><th class="n">差異(金額)</th><th class="n">未確認</th><th>判定</th></tr></thead>
     <tbody>${recent.map(m => `<tr><td><a href="#/match/${m.id}">${h(m.cust)} ${h(m.cust_name || '')}</a></td><td>${fmtDate(m.date_from).slice(5)}〜${fmtDate(m.date_to).slice(5)}</td>
@@ -224,11 +219,20 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     let view = q.get('view') || 'day';
     if (!RM.VIEWS[view] && view !== 'warn') view = 'day';
     const onlyDiff = q.get('only_diff') === '1', onlyUnc = q.get('only_unc') === '1', kw = (q.get('q') || '').trim();
+    const fdate = q.get('fdate') || '', fstore = q.get('fstore') || '', forder = (q.get('forder') || '').trim();
+    const FILTERS = { day: ['date'], store: ['date', 'store'], slip: ['order', 'date', 'store'], dsi: ['date', 'order', 'store'], item: ['date', 'store'] };
+    let dateOpts = [], storeOpts = [];
     const t = await RM.totals(id), cnt = await RM.counts(id);
     let rows = [], warns = [];
     if (view === 'warn') warns = await RM.warnings(id);
     else {
       rows = await RM.aggregate(id, view);
+      const sn = rows.storeNames || new Map();
+      dateOpts = [...new Set(rows.flatMap(r => r.fdates))].sort();
+      storeOpts = [...new Set(rows.flatMap(r => r.fstores))].sort().map(c => [c, sn.get(c) || '']);
+      if (fdate) rows = rows.filter(r => r.fdates.includes(fdate));
+      if (fstore) rows = rows.filter(r => r.fstores.includes(fstore));
+      if (forder) rows = rows.filter(r => r.forder.includes(code(forder)) || r.forder.includes(forder));
       if (onlyDiff) rows = rows.filter(r => !r.ok);
       if (onlyUnc) rows = rows.filter(r => !r.ok && !r.checked);
       if (kw) rows = rows.filter(r => r.k1.includes(kw) || r.k2.includes(kw) || r.comment.includes(kw));
@@ -239,7 +243,7 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     rows = rows.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS);
     warns = warns.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS);
     const base = '#/match/' + id;
-    const href = p => base + qs({ view, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '', q: kw, page: p });
+    const href = p => base + qs({ view, fdate, fstore, forder, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '', q: kw, page: p });
     const V = RM.VIEWS[view], ms = RM.measures(view);
     const tabs = Object.entries(RM.VIEWS).map(([k, v]) => `<a class="tab ${view === k ? 'on' : ''}" href="${base + qs({ view: k, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '' })}">${v.label} <span class="cnt ${cnt[k] ? 'has' : ''}">${cnt[k]}</span></a>`).join('') +
       `<a class="tab ${view === 'warn' ? 'on' : ''}" href="${base}?view=warn">変換警告 <span class="cnt ${cnt.warn ? 'has' : ''}">${cnt.warn}</span></a>`;
@@ -247,10 +251,17 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     if (view !== 'warn') {
       body = `
   <form class="bar" data-form="result-filter" data-base="${base}" data-view="${view}">
+    ${(FILTERS[view] || []).map(f => f === 'date'
+      ? `<label class="chk">日付 <select name="fdate" class="fld fld-s js-autosubmit"><option value="">すべて</option>${dateOpts.map(d => opt(d, fmtDate(d), d === fdate)).join('')}</select></label>`
+      : f === 'store'
+        ? `<label class="chk">店舗 <select name="fstore" class="fld fld-s js-autosubmit" style="max-width:220px"><option value="">すべて</option>${storeOpts.map(([c, n]) => opt(c, `${c} ${n}`.trim(), c === fstore)).join('')}</select></label>`
+        : `<label class="chk">相手先注文番号 <input type="search" name="forder" value="${h(forder)}" class="cin" style="width:140px" placeholder="番号の一部でも可"></label>`).join('')}
+    ${(FILTERS[view] || []).length ? '<span class="sep" aria-hidden="true"></span>' : ''}
     <label class="chk"><input type="checkbox" name="only_diff" value="1" class="js-autosubmit"${onlyDiff ? ' checked' : ''}> 不一致のみ表示</label>
     <label class="chk"><input type="checkbox" name="only_unc" value="1" class="js-autosubmit"${onlyUnc ? ' checked' : ''}> 未確認のみ表示</label>
-    <label class="chk">検索 <input type="search" name="q" value="${h(kw)}" class="cin" placeholder="日付・番号・商品・コメント"></label>
+    <label class="chk">キーワード <input type="search" name="q" value="${h(kw)}" class="cin" style="width:170px" placeholder="商品名・コメントなど"></label>
     <button type="submit" class="btn btn-s">表示</button>
+    ${fdate || fstore || forder || kw ? `<a class="btn btn-s" href="${base}?view=${view}">条件をクリア</a>` : ''}
     <span class="legend"><span class="b b-diff">差異あり</span><span class="b b-s">自社のみ</span><span class="b b-r">受領のみ</span><span class="b b-ok">一致</span></span>
   </form>
   <div class="inner"><div class="tblscroll"><table class="tbl compact sticky">
@@ -308,7 +319,7 @@ ${head(`明細:${V.k1} ${h(r.k1)}`, h(r.k2 || ''), '', `<a href="${base}?view=${
   <div><div class="k">判定</div><span class="b ${r.badge}">${h(r.judge_label)}</span></div>
   <div><div class="k">差異(売上−受領)</div><div class="v">${RM.measures(view).map(x => `${x.label} ${dcell(FMT[x.key], r.d[x.idx])}`).join(' / ')}</div></div></div>
 <div style="display:flex;flex-direction:column;gap:16px">${tbl('売上明細(自社)', '#3B5CC4', d.sales, false, r.s)}${tbl('受領明細(得意先)', '#9A4A16', d.receipt, true, r.r)}</div>
-${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class="tblwrap"><table class="tbl">
+${view !== 'item' && view !== 'dsi' ? `<section class="card"><h2>商品別の比較</h2><div class="tblwrap"><table class="tbl">
   <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th class="n">差異 金額</th><th>判定</th></tr></thead>
   <tbody>${d.products.map(p => `<tr class="${p.row_cls}"><td>${h(p.key[0])}</td><td>${h(p.name)}</td><td class="n">${p.s ? fAmt(p.s[0]) : '—'}</td><td class="n">${p.r ? fAmt(p.r[0]) : '—'}</td>
     <td class="n">${dcell(fQty, p.d[1])}</td><td class="n">${dcell(fWt, p.d[2])}</td><td class="n">${dcell(fAmt, p.d[0])}</td><td><span class="b ${p.badge}">${h(p.judge_label)}</span></td></tr>`).join('')}</tbody></table></div></section>` : ''}
@@ -516,7 +527,8 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
   const FORMS = {
     'list-filter': async (f, fd) => go('/matches' + qs({ cust: fd.get('cust'), from: fd.get('from'), to: fd.get('to'), unchecked: fd.get('unchecked') })),
     'ledger-filter': async (f, fd) => go('/ledger' + qs({ cust: fd.get('cust'), q: fd.get('q'), dup: fd.get('dup') })),
-    'result-filter': async (f, fd) => go(f.dataset.base.slice(1) + qs({ view: f.dataset.view, only_diff: fd.get('only_diff'), only_unc: fd.get('only_unc'), q: fd.get('q') })),
+    'result-filter': async (f, fd) => go(f.dataset.base.slice(1) + qs({ view: f.dataset.view, fdate: fd.get('fdate'), fstore: fd.get('fstore'), forder: fd.get('forder'),
+      only_diff: fd.get('only_diff'), only_unc: fd.get('only_unc'), q: fd.get('q') })),
     'new': async (f, fd) => {
       let df, dtt;
       try { df = RM.date(String(fd.get('from')).trim()); dtt = RM.date(String(fd.get('to')).trim()); } catch (_) { throw new RM.ReadError('期間を YYYY/MM/DD で入力してください。'); }
