@@ -409,8 +409,12 @@
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        const nm = stores.map(x => sn.get(x) || '').filter(Boolean).join('、') || (s && s.sname) || (r && r.sname) || '';
-        row.cells = [k[0], dates, stores.join('、'), nm];
+        const names = stores.map(x => sn.get(x) || '').filter(Boolean);
+        const nm = names.join('、') || (s && s.sname) || (r && r.sname) || '';
+        // 店舗が多い伝票は短く表示(全店舗は tips に入れ、画面ではマウスを乗せると表示)
+        const short = (arr, all) => (arr.length > 3 ? `${arr.slice(0, 3).join('、')} …他${arr.length - 3}店` : all);
+        row.cells = [k[0] || '(注文番号なし)', dates, short(stores, stores.join('、')), short(names, nm)];
+        row.tips = ['', '', stores.length > 3 ? stores.join('、') : '', names.length > 3 ? nm : ''];
       }
       row.k1 = row.cells[0];
       row.k2 = row.cells.slice(1).filter(Boolean).join(' ・ ');
@@ -509,7 +513,7 @@
       const data = await RM.aggregate(id, view);
       const tot = { s: [0, 0, 0], r: [0, 0, 0], d: [0, 0, 0] };
       for (const r of data) {
-        const f = FILL[r.judge] || 0, out = r.cells.map(c => C(c, f));
+        const f = FILL[r.judge] || 0, out = r.cells.map((c, i) => C((r.tips && r.tips[i]) || c, f));
         for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
         out.push(C(v.full ? r.judge_label : r.judge_short, f));
         rows.push(out);

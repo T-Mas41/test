@@ -258,7 +258,7 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
       ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n${x.key === 'amt' ? ' amt' : ''}">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
       <th>判定</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
-      <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map(c => `<td>${h(c)}</td>`).join('')}
+      <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map((c, i) => `<td class="txt" title="${h((r.tips && r.tips[i + 1]) || c)}">${h(c)}</td>`).join('')}
       ${[['as', r.s], ['ar', r.r]].map(([c, tr]) => ms.map(x => tr ? `<td class="n${x.key === 'amt' ? ' amt ' + c : ''}">${fmtM(x, tr)}</td>` : `<td class="n zero${x.key === 'amt' ? ' amt ' + c : ''}">—</td>`).join('')).join('')}
       ${ms.map(x => `<td class="n${x.key === 'amt' ? ' amt ad' : ''}">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
       <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>

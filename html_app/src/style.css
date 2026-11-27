@@ -170,9 +170,12 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 .tbl.sticky thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--line)}
 /* 照合結果: 売上・受領・差異の金額を目立たせる */
 .tbl td.amt{font-size:14px;font-weight:700;color:#25233A}
-.tbl td.amt.as{box-shadow:inset 3px 0 0 #C9D8FF}
-.tbl td.amt.ar{box-shadow:inset 3px 0 0 #FFD9BF}
-.tbl td.amt.ad{box-shadow:inset 3px 0 0 #D9CCFF}
+/* 金額列の左右に罫線 */
+.tbl td.amt.as,.tbl th.gs.amt{border-left:2px solid #A9BFFF;border-right:2px solid #A9BFFF}
+.tbl td.amt.ar,.tbl th.gr.amt{border-left:2px solid #FFC59E;border-right:2px solid #FFC59E}
+.tbl td.amt.ad,.tbl th.gd.amt{border-left:2px solid #C3B0FF;border-right:2px solid #C3B0FF}
 .tbl th.amt{font-size:13.5px;color:#25233A}
 .tbl th.gs.amt{background:#E3ECFF}.tbl th.gr.amt{background:#FFEBDD}.tbl th.gd.amt{background:#ECE5FF}
 .tbl td.amt.zero{color:#A29EB4;font-weight:400}
+/* 長い文字列の列で他の列が押し出されないように */
+.tbl.compact td.txt{max-width:240px;overflow:hidden;text-overflow:ellipsis}
