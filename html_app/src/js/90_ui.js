@@ -256,17 +256,16 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
   <div class="inner"><table class="tbl compact">
     <thead><tr>${V.heads.map(x => `<th>${x}</th>`).join('')}
       ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
-      <th>判定</th><th>確認済</th><th>コメント</th></tr></thead>
+      <th>判定</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
       <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map(c => `<td>${h(c)}</td>`).join('')}
       ${[r.s, r.r].map(tr => ms.map(x => tr ? `<td class="n">${fmtM(x, tr)}</td>` : '<td class="n zero">—</td>').join('')).join('')}
       ${ms.map(x => `<td class="n">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
       <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>
-      <td style="text-align:center"><input type="checkbox" class="js-check" aria-label="確認済み"${r.checked ? ' checked' : ''}></td>
-      <td class="cm"><input type="text" class="cin js-comment" aria-label="コメント" value="${h(r.comment)}" maxlength="1000"></td></tr>`).join('') ||
-      `<tr><td colspan="${V.heads.length + ms.length * 3 + 3}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
+</tr>`).join('') ||
+      `<tr><td colspan="${V.heads.length + ms.length * 3 + 1}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
     ${pager(page, pages, total, href)}
-    <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。確認済み・コメントは入力すると自動で保存されます。差異 = 売上 − 受領。</p></div>`;
+    <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。差異の確認済み・コメントは明細画面で入力します。差異 = 売上 − 受領。</p></div>`;
     } else {
       body = `<div class="inner" style="padding-top:12px"><table class="tbl compact">
     <thead><tr><th>種別</th><th>取引日付</th><th>相手先注文番号</th><th>店舗</th><th>相手先商品コード</th><th>商品名(受領)</th><th>採用した自社商品コード</th><th>備考</th><th class="n">受領金額</th><th class="n">受領ファイル行</th></tr></thead>

@@ -537,7 +537,12 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   // スタイル: fill 0なし 1黄 2青 3赤 4見出し(紺) / fmt 0なし 1金額 2数量 3重量 / bold
   const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];  // 見出しの色は fillId 6
   const FMTS = [0, 164, 165, 166];
-  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+  //      8合計行(fmt 0:文字 1:金額 2:数量 3:重量) 9販売先(太字16pt) 10照合期間(太字13pt)
+  function styleId(fill, fmt, kind) {
+    if (kind === 8) return 23 + fmt;
+    if (kind === 9) return 27;
+    if (kind === 10) return 28;
     if (kind >= 5) return 15 + kind;
     if (kind === 1) return 1;
     if (kind === 2) return 2;
@@ -558,24 +563,31 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     xfs += '<xf numFmtId="164" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' +
       '<xf numFmtId="164" fontId="5" fillId="7" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
       '<xf numFmtId="164" fontId="4" fillId="8" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>';
+    // 23-26: 合計行(文字/金額/数量/重量) 27: 販売先 28: 照合期間
+    xfs += [0, 164, 165, 166].map(n => `<xf numFmtId="${n}" fontId="2" fillId="9" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>`).join('') +
+      '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/>';
     const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
       FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
-      '<fonts count="6"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<fonts count="7"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
-      `<fills count="9">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
+      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="13"/><color rgb="FF5B3FD6"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="10">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
       '<fill><patternFill patternType="solid"><fgColor rgb="FFFDEDED"/><bgColor indexed="64"/></patternFill></fill>' +
-      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
-      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
-      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFF1EDFF"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="double"><color rgb="FF6D4CE5"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      `<cellXfs count="${4 + 16 + 3}">${xfs}</cellXfs>` +
+      `<cellXfs count="${4 + 16 + 3 + 6}">${xfs}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   }
 
@@ -589,10 +601,10 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
     sheets.forEach((sh, si) => {
       const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', `<worksheet ${ns}>`];
-      const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length));
+      const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length)), fr = sh.freezeRows || 1;
       out.push(`<dimension ref="A1:${colName(ncols)}${Math.max(1, nrows)}"/>`);
       out.push('<sheetViews><sheetView workbookViewId="0"' + (si === 0 ? ' tabSelected="1"' : '') + '>' +
-        (sh.freeze ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>' : '') +
+        (sh.freeze ? `<pane ySplit="${fr}" topLeftCell="A${fr + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${fr + 1}" sqref="A${fr + 1}"/>` : '') +
         '</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>');
       if (sh.widths && sh.widths.length) out.push('<cols>' + sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>');
       out.push('<sheetData>');
@@ -612,12 +624,13 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
         out.push(x + '</row>');
       }
       out.push('</sheetData>');
-      if (sh.filter && nrows > 0) out.push(`<autoFilter ref="A1:${colName(ncols)}${nrows}"/>`);
+      if (sh.filter && nrows > 0) out.push(`<autoFilter ref="${sh.filterRef || `A1:${colName(ncols)}${nrows}`}"/>`);
       out.push('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>');
       files.push({ name: `xl/worksheets/sheet${si + 1}.xml`, data: enc.encode(out.join('')) });
     });
     const sheetList = sheets.map((s, i) => `<sheet name="${xesc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
-    const defNames = sheets.map((s, i) => s.filter && s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name)}'!$A$1:$${colName(Math.max(1, ...s.rows.map(r => r.length)))}$${s.rows.length}</definedName>` : '').join('');
+    const absRef = ref => ref.split(':').map(x => x.replace(/^([A-Z]+)(\d+)$/, (m, c, r) => '$' + c + '$' + r)).join(':');
+    const defNames = sheets.map((s, i) => s.filter && s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name)}'!${absRef(s.filterRef || `A1:${colName(Math.max(1, ...s.rows.map(r => r.length)))}${s.rows.length}`)}</definedName>` : '').join('');
     files.unshift(
       { name: '[Content_Types].xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>') },
       { name: '_rels/.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') },
@@ -832,7 +845,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   }
 
   // ================================================================ 販売台帳
-  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
+  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113, store_name: 114 };
   RM.STORE_ANY = '99999999999';
 
   RM.importLedger = importLedger;
@@ -850,15 +863,24 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
       if (text(g('deleted')) === '9') { deleted++; continue; }
       const pc = code(g('partner_code')), oc = ownCode(g('own_code'));
       if (!pc || !oc) { skipped++; continue; }
-      recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name'))]);
+      recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name')), text(g('store_name'))]);
     }
     const meta = { file_name: fileName, imported_at: now(), total_rows: total, loaded_rows: recs.length, deleted_rows: deleted, skipped_rows: skipped };
     await RM.db.put('kv', { k: 'ledger', meta, rows: recs });
+    RM._storeNames = null;
     return meta;
   }
   async function ledger() { return (await RM.db.get('kv', 'ledger')) || { meta: null, rows: [] }; }
   RM.ledgerRows = async () => (await ledger()).rows.map(r => ({ cust: r[0], cust_name: r[1], store: r[2], partner_code: r[3], own_code: r[4], own_name: r[5] }));
   RM.ledgerMeta = async () => (await ledger()).meta;
+  // 店舗コード → 店舗名(販売台帳の店舗略称)。売上・受領データに店舗名がない場合の補完用
+  async function storeNames(cust) {
+    if (RM._storeNames && RM._storeNames.cust === cust) return RM._storeNames.map;
+    const map = new Map();
+    for (const r of (await ledger()).rows) if (r[0] === cust && r[2] !== RM.STORE_ANY && r[6] && !map.has(r[2])) map.set(r[2], r[6]);
+    RM._storeNames = { cust, map };
+    return map;
+  }
   RM.ledgerCustomers = async () => {
     const m = new Map();
     for (const r of (await ledger()).rows) if (!m.has(r[0]) || (!m.get(r[0]) && r[1])) m.set(r[0], r[1]);
@@ -1039,7 +1061,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   RM.VIEWS = {
     day: { label: '日別', keys: ['tdate'], heads: ['取引日付'], full: false },
     store: { label: '日別店別', keys: ['tdate', 'store'], heads: ['取引日付', '店舗コード', '店舗名'], full: false },
-    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗'], full: false },
+    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗コード', '店舗名'], full: false },
     item: { label: '日別商品別', keys: ['tdate', 'own_code'], heads: ['取引日付', '自社商品コード', '商品名'], full: true },
   };
   for (const v of Object.values(RM.VIEWS)) v.k1 = v.heads[0];
@@ -1145,14 +1167,15 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const all = [...new Set([...sd.keys(), ...rd.keys()])].sort();
     return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r, full), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
   }
-  const md = set => [...set].sort().map(d => d.slice(5).replace('-', '/')).join(',');
+  const md = set => [...set].sort().map(fmtDate).join(',');
 
   RM.aggregate = async (id, view) => {
     const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
+    const m = await RM.db.get('matches', id), sn = await storeNames(m ? m.cust : '');
     const rows = aggregateKeys(l, v.keys, null, v.full);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
-      const sname = (s && s.sname) || (r && r.sname) || '';
+      const sname = (s && s.sname) || (r && r.sname) || (k.length > 1 && view === 'store' ? sn.get(k[1]) : '') || '';
       if (view === 'day') row.cells = [fmtDate(k[0])];
       else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
       else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
@@ -1160,7 +1183,8 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        row.cells = [k[0], dates, stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、')];
+        const nm = stores.length === 1 ? ((s && s.sname) || (r && r.sname) || sn.get(stores[0]) || '') : stores.map(x => sn.get(x) || '').filter(Boolean).join('、');
+        row.cells = [k[0], dates, stores.join('、'), nm];
       }
       row.k1 = row.cells[0];
       row.k2 = row.cells.slice(1).filter(Boolean).join(' ・ ');
@@ -1235,9 +1259,9 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
     const sheets = [];
     // サマリ: 画面の3枚のカード(売上額・受領額・差額)と同じ並び
-    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
-      [B('販売先'), P(`${m.cust} ${m.cust_name || ''}`.trim())],
-      [B('期間(取引日付)'), P(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`)],
+    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }],
+      [{ v: `販売先:${m.cust} ${m.cust_name || ''}`.trim(), s: st(0, 0, 9) }],
+      [{ v: `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`, s: st(0, 0, 10) }], [],
       [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
       [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
       [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
@@ -1248,27 +1272,41 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k]), C(v.full ? '数量・重量・金額' : '金額')]);
     sum.push([C('変換警告'), C(cnt.warn), C('商品コードの変換')]);
     sheets.push({ name: 'サマリ', widths: [24, 24, 24, 10], rows: sum });
+    const custTitle = `販売先:${m.cust} ${m.cust_name || ''}`.trim();
+    const period = `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`;
+    const top = label => [[{ v: custTitle, s: st(0, 0, 9) }], [{ v: period, s: st(0, 0, 10) }], [{ v: label, s: st(0, 0, 4) }]];
     for (const [view, v] of Object.entries(RM.VIEWS)) {
       const ms = RM.measures(view);
-      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定', '確認済', 'コメント', '確認更新日時']);
-      const rows = [head.map(H)];
-      for (const r of await RM.aggregate(id, view)) {
+      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定']);
+      const rows = top(`${v.label}の照合結果(差異 = 売上 − 受領)`);
+      rows.push(head.map(H));
+      const data = await RM.aggregate(id, view);
+      const tot = { s: [0, 0, 0], r: [0, 0, 0], d: [0, 0, 0] };
+      for (const r of data) {
         const f = FILL[r.judge] || 0, out = r.cells.map(c => C(c, f));
         for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
-        out.push(C(v.full ? r.judge_label : r.judge_short, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
+        out.push(C(v.full ? r.judge_label : r.judge_short, f));
         rows.push(out);
+        for (let i = 0; i < 3; i++) { tot.s[i] += r.s ? r.s[i] : 0; tot.r[i] += r.r ? r.r[i] : 0; tot.d[i] += r.d[i]; }
       }
-      const kw = { day: [12], store: [12, 12, 20], slip: [16, 24, 22], item: [12, 12, 30] }[view];
-      sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, filter: true, rows,
-        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10, 8, 40, 17]) });
+      const hr = 4, last = hr + data.length;
+      const totRow = [{ v: `合計(${data.length.toLocaleString()}件)`, s: st(0, 0, 8) }];
+      for (let i = 1; i < v.heads.length; i++) totRow.push({ v: '', s: st(0, 0, 8) });
+      for (const arr of [tot.s, tot.r, tot.d]) for (const x of ms) totRow.push({ v: mval(arr, x), s: st(0, x.fmt, 8) });
+      totRow.push({ v: tot.d[0] === 0 ? '一致' : '差異あり', s: st(0, 0, 8) });
+      rows.push(totRow);
+      const kw = { day: [14], store: [14, 12, 20], slip: [16, 14, 12, 20], item: [14, 12, 30] }[view];
+      sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, freezeRows: hr, filter: true, rows,
+        filterRef: `A${hr}:${RM.colName(head.length)}${last}`,
+        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10]) });
     }
-    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)];
+    const wrows = top('商品コードを変換できなかった受領明細').concat([['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)]);
     for (const w of await RM.warnings(id)) {
       const f = w.conv_status === 'none' ? 3 : 1;
-      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
+      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || (await storeNames(m.cust)).get(w.store) || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
         C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
     }
-    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
+    sheets.push({ name: '変換警告', freeze: true, freezeRows: 4, filter: true, filterRef: `A4:L${wrows.length}`, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
     return RM.writeXlsx(sheets);
   };
 
@@ -1549,17 +1587,16 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
   <div class="inner"><table class="tbl compact">
     <thead><tr>${V.heads.map(x => `<th>${x}</th>`).join('')}
       ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
-      <th>判定</th><th>確認済</th><th>コメント</th></tr></thead>
+      <th>判定</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
       <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map(c => `<td>${h(c)}</td>`).join('')}
       ${[r.s, r.r].map(tr => ms.map(x => tr ? `<td class="n">${fmtM(x, tr)}</td>` : '<td class="n zero">—</td>').join('')).join('')}
       ${ms.map(x => `<td class="n">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
       <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>
-      <td style="text-align:center"><input type="checkbox" class="js-check" aria-label="確認済み"${r.checked ? ' checked' : ''}></td>
-      <td class="cm"><input type="text" class="cin js-comment" aria-label="コメント" value="${h(r.comment)}" maxlength="1000"></td></tr>`).join('') ||
-      `<tr><td colspan="${V.heads.length + ms.length * 3 + 3}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
+</tr>`).join('') ||
+      `<tr><td colspan="${V.heads.length + ms.length * 3 + 1}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
     ${pager(page, pages, total, href)}
-    <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。確認済み・コメントは入力すると自動で保存されます。差異 = 売上 − 受領。</p></div>`;
+    <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。差異の確認済み・コメントは明細画面で入力します。差異 = 売上 − 受領。</p></div>`;
     } else {
       body = `<div class="inner" style="padding-top:12px"><table class="tbl compact">
     <thead><tr><th>種別</th><th>取引日付</th><th>相手先注文番号</th><th>店舗</th><th>相手先商品コード</th><th>商品名(受領)</th><th>採用した自社商品コード</th><th>備考</th><th class="n">受領金額</th><th class="n">受領ファイル行</th></tr></thead>

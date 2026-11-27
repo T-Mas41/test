@@ -66,7 +66,7 @@
   }
 
   // ================================================================ 販売台帳
-  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
+  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113, store_name: 114 };
   RM.STORE_ANY = '99999999999';
 
   RM.importLedger = importLedger;
@@ -84,15 +84,24 @@
       if (text(g('deleted')) === '9') { deleted++; continue; }
       const pc = code(g('partner_code')), oc = ownCode(g('own_code'));
       if (!pc || !oc) { skipped++; continue; }
-      recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name'))]);
+      recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name')), text(g('store_name'))]);
     }
     const meta = { file_name: fileName, imported_at: now(), total_rows: total, loaded_rows: recs.length, deleted_rows: deleted, skipped_rows: skipped };
     await RM.db.put('kv', { k: 'ledger', meta, rows: recs });
+    RM._storeNames = null;
     return meta;
   }
   async function ledger() { return (await RM.db.get('kv', 'ledger')) || { meta: null, rows: [] }; }
   RM.ledgerRows = async () => (await ledger()).rows.map(r => ({ cust: r[0], cust_name: r[1], store: r[2], partner_code: r[3], own_code: r[4], own_name: r[5] }));
   RM.ledgerMeta = async () => (await ledger()).meta;
+  // 店舗コード → 店舗名(販売台帳の店舗略称)。売上・受領データに店舗名がない場合の補完用
+  async function storeNames(cust) {
+    if (RM._storeNames && RM._storeNames.cust === cust) return RM._storeNames.map;
+    const map = new Map();
+    for (const r of (await ledger()).rows) if (r[0] === cust && r[2] !== RM.STORE_ANY && r[6] && !map.has(r[2])) map.set(r[2], r[6]);
+    RM._storeNames = { cust, map };
+    return map;
+  }
   RM.ledgerCustomers = async () => {
     const m = new Map();
     for (const r of (await ledger()).rows) if (!m.has(r[0]) || (!m.get(r[0]) && r[1])) m.set(r[0], r[1]);
@@ -273,7 +282,7 @@
   RM.VIEWS = {
     day: { label: '日別', keys: ['tdate'], heads: ['取引日付'], full: false },
     store: { label: '日別店別', keys: ['tdate', 'store'], heads: ['取引日付', '店舗コード', '店舗名'], full: false },
-    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗'], full: false },
+    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗コード', '店舗名'], full: false },
     item: { label: '日別商品別', keys: ['tdate', 'own_code'], heads: ['取引日付', '自社商品コード', '商品名'], full: true },
   };
   for (const v of Object.values(RM.VIEWS)) v.k1 = v.heads[0];
@@ -379,14 +388,15 @@
     const all = [...new Set([...sd.keys(), ...rd.keys()])].sort();
     return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r, full), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
   }
-  const md = set => [...set].sort().map(d => d.slice(5).replace('-', '/')).join(',');
+  const md = set => [...set].sort().map(fmtDate).join(',');
 
   RM.aggregate = async (id, view) => {
     const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
+    const m = await RM.db.get('matches', id), sn = await storeNames(m ? m.cust : '');
     const rows = aggregateKeys(l, v.keys, null, v.full);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
-      const sname = (s && s.sname) || (r && r.sname) || '';
+      const sname = (s && s.sname) || (r && r.sname) || (k.length > 1 && view === 'store' ? sn.get(k[1]) : '') || '';
       if (view === 'day') row.cells = [fmtDate(k[0])];
       else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
       else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
@@ -394,7 +404,8 @@
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        row.cells = [k[0], dates, stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、')];
+        const nm = stores.length === 1 ? ((s && s.sname) || (r && r.sname) || sn.get(stores[0]) || '') : stores.map(x => sn.get(x) || '').filter(Boolean).join('、');
+        row.cells = [k[0], dates, stores.join('、'), nm];
       }
       row.k1 = row.cells[0];
       row.k2 = row.cells.slice(1).filter(Boolean).join(' ・ ');
@@ -469,9 +480,9 @@
     const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
     const sheets = [];
     // サマリ: 画面の3枚のカード(売上額・受領額・差額)と同じ並び
-    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
-      [B('販売先'), P(`${m.cust} ${m.cust_name || ''}`.trim())],
-      [B('期間(取引日付)'), P(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`)],
+    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }],
+      [{ v: `販売先:${m.cust} ${m.cust_name || ''}`.trim(), s: st(0, 0, 9) }],
+      [{ v: `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`, s: st(0, 0, 10) }], [],
       [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
       [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
       [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
@@ -482,27 +493,41 @@
     for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k]), C(v.full ? '数量・重量・金額' : '金額')]);
     sum.push([C('変換警告'), C(cnt.warn), C('商品コードの変換')]);
     sheets.push({ name: 'サマリ', widths: [24, 24, 24, 10], rows: sum });
+    const custTitle = `販売先:${m.cust} ${m.cust_name || ''}`.trim();
+    const period = `照合期間:${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`;
+    const top = label => [[{ v: custTitle, s: st(0, 0, 9) }], [{ v: period, s: st(0, 0, 10) }], [{ v: label, s: st(0, 0, 4) }]];
     for (const [view, v] of Object.entries(RM.VIEWS)) {
       const ms = RM.measures(view);
-      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定', '確認済', 'コメント', '確認更新日時']);
-      const rows = [head.map(H)];
-      for (const r of await RM.aggregate(id, view)) {
+      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定']);
+      const rows = top(`${v.label}の照合結果(差異 = 売上 − 受領)`);
+      rows.push(head.map(H));
+      const data = await RM.aggregate(id, view);
+      const tot = { s: [0, 0, 0], r: [0, 0, 0], d: [0, 0, 0] };
+      for (const r of data) {
         const f = FILL[r.judge] || 0, out = r.cells.map(c => C(c, f));
         for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
-        out.push(C(v.full ? r.judge_label : r.judge_short, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
+        out.push(C(v.full ? r.judge_label : r.judge_short, f));
         rows.push(out);
+        for (let i = 0; i < 3; i++) { tot.s[i] += r.s ? r.s[i] : 0; tot.r[i] += r.r ? r.r[i] : 0; tot.d[i] += r.d[i]; }
       }
-      const kw = { day: [12], store: [12, 12, 20], slip: [16, 24, 22], item: [12, 12, 30] }[view];
-      sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, filter: true, rows,
-        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10, 8, 40, 17]) });
+      const hr = 4, last = hr + data.length;
+      const totRow = [{ v: `合計(${data.length.toLocaleString()}件)`, s: st(0, 0, 8) }];
+      for (let i = 1; i < v.heads.length; i++) totRow.push({ v: '', s: st(0, 0, 8) });
+      for (const arr of [tot.s, tot.r, tot.d]) for (const x of ms) totRow.push({ v: mval(arr, x), s: st(0, x.fmt, 8) });
+      totRow.push({ v: tot.d[0] === 0 ? '一致' : '差異あり', s: st(0, 0, 8) });
+      rows.push(totRow);
+      const kw = { day: [14], store: [14, 12, 20], slip: [16, 14, 12, 20], item: [14, 12, 30] }[view];
+      sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, freezeRows: hr, filter: true, rows,
+        filterRef: `A${hr}:${RM.colName(head.length)}${last}`,
+        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10]) });
     }
-    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)];
+    const wrows = top('商品コードを変換できなかった受領明細').concat([['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)]);
     for (const w of await RM.warnings(id)) {
       const f = w.conv_status === 'none' ? 3 : 1;
-      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
+      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || (await storeNames(m.cust)).get(w.store) || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
         C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
     }
-    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
+    sheets.push({ name: '変換警告', freeze: true, freezeRows: 4, filter: true, filterRef: `A4:L${wrows.length}`, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
     return RM.writeXlsx(sheets);
   };
 

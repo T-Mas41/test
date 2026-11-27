@@ -54,9 +54,9 @@ await test('full flow (same expectations as Python version)', async () => {
   const slip = Object.fromEntries((await RM.aggregate(id, 'slip')).map(r => [r.k1, r]));
   assert.equal(slip['7227151'].judge, 'diff'); assert.deepEqual(slip['7227151'].d, [2660, 2000, 355]);
   assert.deepEqual(slip['7227188'].d, [-6742, -2000, -320]);
-  assert.equal(slip['7227302'].judge, 'ok'); assert.ok(slip['7227302'].k2.includes('売上 11/09 / 受領 11/08'));
+  assert.equal(slip['7227302'].judge, 'ok'); assert.ok(slip['7227302'].k2.includes('売上 2026/11/09 / 受領 2026/11/08'));
   assert.equal(slip['7227290'].judge, 'sonly'); assert.equal(slip['7227295'].judge, 'ronly');
-  assert.equal(slip['7227295'].k2, '11/07 ・ 20005561 松本店');
+  assert.deepEqual(slip['7227295'].cells, ['7227295', '2026/11/07', '20005561', '松本店']);
   assert.equal(slip['7227400'].judge, 'ok'); assert.equal(slip['7218832'].judge, 'ok');
   const day = Object.fromEntries((await RM.aggregate(id, 'day')).map(r => [r.key[0], r]));
   assert.equal(day['2026-11-08'].judge, 'ronly'); assert.equal(day['2026-11-09'].judge, 'sonly');
@@ -86,13 +86,22 @@ await test('full flow (same expectations as Python version)', async () => {
   // Excelレポート(openpyxlでの検証は別スクリプト)
   const blob = await RM.buildReport(id);
   fs.writeFileSync(path.join(process.env.REPORT_OUT || '/tmp', 'report_test.xlsx'), Buffer.from(await blob.arrayBuffer()));
-  const back = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: '伝票別' });
-  assert.deepEqual(back[0].slice(1), ['相手先注文番号', '取引日付', '店舗', '売上 金額', '受領 金額', '差異 金額', '判定', '確認済', 'コメント', '確認更新日時']);
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  const back = await RM.readXlsx(buf, { sheetName: '伝票別' });
+  assert.equal(back[0][1], '販売先:20005525 H');
+  assert.equal(back[1][1], '照合期間:2026/11/01 〜 2026/11/10');
+  assert.deepEqual(back[3].slice(1), ['相手先注文番号', '取引日付', '店舗コード', '店舗名', '売上 金額', '受領 金額', '差異 金額', '判定']);
   const row = back.find(r => r[1] === '7227290');
-  assert.equal(row[9], '受領漏れ連絡済');
-  const itemSheet = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: '日別商品別' });
-  assert.deepEqual(itemSheet[0].slice(4, 13), ['売上 数量', '売上 重量', '売上 金額', '受領 数量', '受領 重量', '受領 金額', '差異 数量', '差異 重量', '差異 金額']);
-  const summary = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: 'サマリ' });
+  assert.deepEqual(Array.from(row.slice(1, 9)), ['7227290', '2026/11/07', '20005561', '松本店', 5400, undefined, 5400, '自社のみ']);
+  const totalRow = back[back.length - 1];
+  assert.equal(totalRow[1], '合計(7件)');
+  assert.deepEqual(totalRow.slice(5, 8), [74862, 78944, -4082]);
+  const itemSheet = await RM.readXlsx(buf, { sheetName: '日別商品別' });
+  assert.deepEqual(itemSheet[3].slice(4, 13), ['売上 数量', '売上 重量', '売上 金額', '受領 数量', '受領 重量', '受領 金額', '差異 数量', '差異 重量', '差異 金額']);
+  const itemTotal = itemSheet[itemSheet.length - 1];
+  assert.deepEqual(itemTotal.slice(4, 13), [50, 10.855, 74862, 50, 10.82, 78944, 0, 0.035, -4082]);
+  const summary = await RM.readXlsx(buf, { sheetName: 'サマリ' });
+  assert.equal(summary[1][1], '販売先:20005525 H');
   const ci = summary.findIndex(r => r[1] === '売上額(自社)');
   assert.deepEqual(summary[ci + 1].slice(1, 4), [74862, 78944, -4082]);
 

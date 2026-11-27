@@ -328,7 +328,12 @@
   // スタイル: fill 0なし 1黄 2青 3赤 4見出し(紺) / fmt 0なし 1金額 2数量 3重量 / bold
   const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];  // 見出しの色は fillId 6
   const FMTS = [0, 164, 165, 166];
-  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+  //      8合計行(fmt 0:文字 1:金額 2:数量 3:重量) 9販売先(太字16pt) 10照合期間(太字13pt)
+  function styleId(fill, fmt, kind) {
+    if (kind === 8) return 23 + fmt;
+    if (kind === 9) return 27;
+    if (kind === 10) return 28;
     if (kind >= 5) return 15 + kind;
     if (kind === 1) return 1;
     if (kind === 2) return 2;
@@ -349,24 +354,31 @@
     xfs += '<xf numFmtId="164" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' +
       '<xf numFmtId="164" fontId="5" fillId="7" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
       '<xf numFmtId="164" fontId="4" fillId="8" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>';
+    // 23-26: 合計行(文字/金額/数量/重量) 27: 販売先 28: 照合期間
+    xfs += [0, 164, 165, 166].map(n => `<xf numFmtId="${n}" fontId="2" fillId="9" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>`).join('') +
+      '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0" fontId="6" fillId="0" borderId="0" xfId="0" applyFont="1"/>';
     const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
       FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
-      '<fonts count="6"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<fonts count="7"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
-      `<fills count="9">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
+      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="13"/><color rgb="FF5B3FD6"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="10">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
       '<fill><patternFill patternType="solid"><fgColor rgb="FFFDEDED"/><bgColor indexed="64"/></patternFill></fill>' +
-      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
-      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
-      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFF1EDFF"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="3"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="double"><color rgb="FF6D4CE5"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      `<cellXfs count="${4 + 16 + 3}">${xfs}</cellXfs>` +
+      `<cellXfs count="${4 + 16 + 3 + 6}">${xfs}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   }
 
@@ -380,10 +392,10 @@
     const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
     sheets.forEach((sh, si) => {
       const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', `<worksheet ${ns}>`];
-      const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length));
+      const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length)), fr = sh.freezeRows || 1;
       out.push(`<dimension ref="A1:${colName(ncols)}${Math.max(1, nrows)}"/>`);
       out.push('<sheetViews><sheetView workbookViewId="0"' + (si === 0 ? ' tabSelected="1"' : '') + '>' +
-        (sh.freeze ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>' : '') +
+        (sh.freeze ? `<pane ySplit="${fr}" topLeftCell="A${fr + 1}" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A${fr + 1}" sqref="A${fr + 1}"/>` : '') +
         '</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>');
       if (sh.widths && sh.widths.length) out.push('<cols>' + sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>');
       out.push('<sheetData>');
@@ -403,12 +415,13 @@
         out.push(x + '</row>');
       }
       out.push('</sheetData>');
-      if (sh.filter && nrows > 0) out.push(`<autoFilter ref="A1:${colName(ncols)}${nrows}"/>`);
+      if (sh.filter && nrows > 0) out.push(`<autoFilter ref="${sh.filterRef || `A1:${colName(ncols)}${nrows}`}"/>`);
       out.push('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>');
       files.push({ name: `xl/worksheets/sheet${si + 1}.xml`, data: enc.encode(out.join('')) });
     });
     const sheetList = sheets.map((s, i) => `<sheet name="${xesc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
-    const defNames = sheets.map((s, i) => s.filter && s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name)}'!$A$1:$${colName(Math.max(1, ...s.rows.map(r => r.length)))}$${s.rows.length}</definedName>` : '').join('');
+    const absRef = ref => ref.split(':').map(x => x.replace(/^([A-Z]+)(\d+)$/, (m, c, r) => '$' + c + '$' + r)).join(':');
+    const defNames = sheets.map((s, i) => s.filter && s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name)}'!${absRef(s.filterRef || `A1:${colName(Math.max(1, ...s.rows.map(r => r.length)))}${s.rows.length}`)}</definedName>` : '').join('');
     files.unshift(
       { name: '[Content_Types].xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>') },
       { name: '_rels/.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') },
