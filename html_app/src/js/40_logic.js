@@ -7,7 +7,8 @@
   const cell = (row, col) => (row ? row[col] : undefined);
 
   // ================================================================ 売上(固定レイアウト・188列、列は位置で特定)
-  RM.SALES_COLS = { cust: 7, cust_name: 8, store: 81, store_name: 82, tdate: 137, order_no: 35, own_code: 9, name: 10, qty: 33, wt: 32, amt: 58, slip_no: 18 };
+  // 自社商品コードは「商品識別コード」(9桁・50列目)を使う
+  RM.SALES_COLS = { cust: 7, cust_name: 8, store: 81, store_name: 82, tdate: 137, order_no: 35, own_code: 50, name: 10, qty: 33, wt: 32, amt: 58, slip_no: 18 };
 
   function checkHeaders(header, cols, expected, label) {
     const errs = [];
@@ -19,38 +20,53 @@
   }
 
   const hasAny = r => !!r.any || r.some(v => !isBlank(v));
+  // 自社商品コード(商品識別コード)は9桁。Excelで数値になり先頭ゼロが落ちた場合は補う
+  const ownCode = v => { const s = text(v).normalize('NFKC').trim(); return /^\d{1,8}$/.test(s) ? s.padStart(9, '0') : s; };
+  RM.ownCode = ownCode;
   RM.hasAny = hasAny;
 
-  async function parseSales(buf, cust, dfrom, dto, onProgress) {
+  /** 売上データを読む。販売先はデータ内の販売先コードで判定し、複数あればエラー。 */
+  async function parseSales(buf, dfrom, dto, onProgress) {
     const rows = await RM.readXlsx(buf, { onProgress, cols: Object.values(RM.SALES_COLS) });
     if (!rows.length) throw new ReadError('売上データが空です。');
     checkHeaders(rows[0], RM.SALES_COLS, RM.SALES_HEADERS, '売上データ');
-    const C = RM.SALES_COLS, ck = code(cust);
+    const C = RM.SALES_COLS;
+    const isKeyBlank = r => isBlank(cell(r, C.tdate)) && isBlank(cell(r, C.order_no)) && isBlank(cell(r, C.own_code));
+    const custs = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (isKeyBlank(r)) continue;
+      const c = code(cell(r, C.cust));
+      if (!custs.has(c)) custs.set(c, { n: 0, name: text(cell(r, C.cust_name)) });
+      custs.get(c).n++;
+    }
+    if (!custs.size) throw new ReadError('売上データにデータ行がありません。');
+    if (custs.size > 1) {
+      throw new ReadError('売上データに複数の販売先コードが含まれています(' +
+        [...custs.entries()].map(([c, v]) => `${c || '(空欄)'}${v.name ? ' ' + v.name : ''}:${v.n.toLocaleString()}行`).join('、') +
+        ')。販売先ごとに分けた売上データを取り込んでください。');
+    }
+    const [cust, info] = [...custs.entries()][0];
+    if (!cust) throw new ReadError('売上データの販売先コード(7列目)が空欄です。');
     const lines = [], errors = [];
     const stats = { total: 0, target: 0, skipped_blank: 0, other_cust: 0, out_of_period: 0, error: 0 };
-    let custName = '';
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i], g = k => cell(r, C[k]);
-      if (isBlank(g('tdate')) && isBlank(g('order_no')) && isBlank(g('own_code'))) {
-        if (hasAny(r)) stats.skipped_blank++;
-        continue;
-      }
+      if (isKeyBlank(r)) { if (hasAny(r)) stats.skipped_blank++; continue; }
       stats.total++;
-      if (code(g('cust')) !== ck) { stats.other_cust++; continue; }
       let td, q, w, a;
       try { td = date(g('tdate')); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
       catch (e) { stats.error++; errors.push({ file: '売上', row: i + 1, msg: e.message }); continue; }
       if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
-      custName = custName || text(g('cust_name'));
       lines.push({ row_no: i + 1, store: code(g('store')), store_name: text(g('store_name')), tdate: td, order_no: code(g('order_no')),
-        slip_no: text(g('slip_no')), own_code: code(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
+        slip_no: text(g('slip_no')), own_code: ownCode(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
     }
     stats.target = lines.length;
-    return { lines, errors, stats, custName };
+    return { lines, errors, stats, cust, custName: info.name };
   }
 
   // ================================================================ 販売台帳
-  RM.LEDGER_COLS = { deleted: 1, own_code: 59, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
+  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
   RM.STORE_ANY = '99999999999';
 
   RM.importLedger = importLedger;
@@ -66,7 +82,7 @@
       total++;
       const g = k => cell(r, C[k]);
       if (text(g('deleted')) === '9') { deleted++; continue; }
-      const pc = code(g('partner_code')), oc = code(g('own_code'));
+      const pc = code(g('partner_code')), oc = ownCode(g('own_code'));
       if (!pc || !oc) { skipped++; continue; }
       recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name'))]);
     }
@@ -253,24 +269,29 @@
   }
 
   // ================================================================ 照合
+  // full: 数量・重量も比較・表示する(日別商品別のみ)。それ以外は金額のみ
   RM.VIEWS = {
-    day: { label: '日別', keys: ['tdate'], k1: '取引日付', k2: '' },
-    store: { label: '日別店別', keys: ['tdate', 'store'], k1: '取引日付', k2: '店舗' },
-    slip: { label: '伝票番号別', keys: ['order_no'], k1: '相手先注文番号', k2: '取引日付・店舗' },
-    item: { label: '日別商品別', keys: ['tdate', 'own_code'], k1: '取引日付', k2: '自社商品コード・商品名' },
+    day: { label: '日別', keys: ['tdate'], heads: ['取引日付'], full: false },
+    store: { label: '日別店別', keys: ['tdate', 'store'], heads: ['取引日付', '店舗コード', '店舗名'], full: false },
+    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗'], full: false },
+    item: { label: '日別商品別', keys: ['tdate', 'own_code'], heads: ['取引日付', '自社商品コード', '商品名'], full: true },
   };
+  for (const v of Object.values(RM.VIEWS)) v.k1 = v.heads[0];
   RM.JUDGE = { ok: ['一致', 'b-ok', ''], diff: ['差異あり', 'b-diff', 'r-diff'], sonly: ['自社のみ', 'b-s', 'r-s'], ronly: ['受領のみ', 'b-r', 'r-r'] };
   const MAX_ERRORS = 500;
 
   /** ファイルを読み込み、下書き(未保存)を返す。確定は confirm。 */
-  RM.stage = async ({ cust, dateFrom, dateTo, salesName, salesBuf, receiptName, receiptBuf, parentId, onProgress }) => {
-    cust = code(cust);
-    if (!cust) throw new ReadError('販売先コードを入力してください。');
+  RM.stage = async ({ dateFrom, dateTo, salesName, salesBuf, receiptName, receiptBuf, parentId, onProgress }) => {
     if (dateFrom > dateTo) throw new ReadError('期間の From が To より後になっています。');
+    onProgress && onProgress('売上データを読み込んでいます…');
+    const s = await parseSales(salesBuf, dateFrom, dateTo, n => onProgress && onProgress(`売上データを読み込んでいます…(${n.toLocaleString()}行)`));
+    const cust = s.cust;
+    if (parentId) {
+      const p = await RM.db.get('matches', parentId);
+      if (p && p.cust !== cust) throw new ReadError(`売上データの販売先(${cust})が、再取込元の照合の販売先(${p.cust})と異なります。`);
+    }
     const [lay, assigned] = await RM.layoutFor(cust);
     if (!lay) throw new ReadError('標準レイアウトが登録されていません。受領レイアウト画面で標準を指定してください。');
-    onProgress && onProgress('売上データを読み込んでいます…');
-    const s = await parseSales(salesBuf, cust, dateFrom, dateTo, n => onProgress && onProgress(`売上データを読み込んでいます…(${n.toLocaleString()}行)`));
     const led = await ledger();
     const conv = new Converter(led.rows, cust);
     onProgress && onProgress('受領データを読み込んでいます…');
@@ -342,39 +363,41 @@
     }
     return m;
   }
-  function compare(s, r) {
+  function compare(s, r, full = true) {
     const S = s ? [s.a, s.q, s.w] : [0, 0, 0], R = r ? [r.a, r.q, r.w] : [0, 0, 0];
     const d = [S[0] - R[0], S[1] - R[1], S[2] - R[2]];
-    const judge = !s ? 'ronly' : !r ? 'sonly' : (d.every(v => v === 0) ? 'ok' : 'diff');
-    const items = ['金額', '数量', '重量'].filter((_, i) => d[i] !== 0);
+    const diff = full ? d.some(v => v !== 0) : d[0] !== 0;
+    const judge = !s ? 'ronly' : !r ? 'sonly' : (diff ? 'diff' : 'ok');
+    const items = full ? ['数量', '重量', '金額'].filter((_, i) => [d[1], d[2], d[0]][i] !== 0) : [];
     const [label, badge, rowCls] = RM.JUDGE[judge];
-    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' ? `差異あり(${items.join('・')})` : label,
+    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' && items.length ? `差異あり(${items.join('・')})` : label,
       judge_short: label, badge, row_cls: rowCls, ok: judge === 'ok' };
   }
   RM.compare = compare;
-  function aggregateKeys(l, keys, filt) {
+  function aggregateKeys(l, keys, filt, full = true) {
     const sd = side(l.sales, keys, filt, false), rd = side(l.receipt, keys, filt, true);
     const all = [...new Set([...sd.keys(), ...rd.keys()])].sort();
-    return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
+    return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r, full), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
   }
   const md = set => [...set].sort().map(d => d.slice(5).replace('-', '/')).join(',');
 
   RM.aggregate = async (id, view) => {
     const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
-    const rows = aggregateKeys(l, v.keys);
+    const rows = aggregateKeys(l, v.keys, null, v.full);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
       const sname = (s && s.sname) || (r && r.sname) || '';
-      if (view === 'day') { row.k1 = fmtDate(k[0]); row.k2 = ''; }
-      else if (view === 'store') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${sname}`.trim(); }
-      else if (view === 'item') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${(s && s.iname) || (r && r.iname) || ''}`.trim(); }
+      if (view === 'day') row.cells = [fmtDate(k[0])];
+      else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
+      else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
       else {
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        const st = stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、');
-        row.k1 = k[0]; row.k2 = [dates, st].filter(Boolean).join(' ・ ');
+        row.cells = [k[0], dates, stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、')];
       }
+      row.k1 = row.cells[0];
+      row.k2 = row.cells.slice(1).filter(Boolean).join(' ・ ');
       const c = cf[view + '|' + row.key_str];
       row.checked = !!(c && c.checked); row.comment = c ? c.comment : ''; row.updated_at = c ? c.updated_at : '';
     }
@@ -384,7 +407,7 @@
     const l = await lines(id);
     const sum = ls => ls.length ? { a: ls.reduce((t, x) => t + x.amt, 0), q: ls.reduce((t, x) => t + x.qty, 0), w: ls.reduce((t, x) => t + x.wt, 0) } : null;
     const s = sum(l.sales), r = sum(l.receipt);
-    const res = compare(s, r);
+    const res = compare(s, r, false);  // 合計は金額で判定
     res.s = res.s || [0, 0, 0]; res.r = res.r || [0, 0, 0];
     res.s_rows = l.sales.length; res.r_rows = l.receipt.length;
     return res;
@@ -393,7 +416,7 @@
     .sort((a, b) => (a.tdate + a.order_no + String(a.row_no).padStart(9, '0')).localeCompare(b.tdate + b.order_no + String(b.row_no).padStart(9, '0')));
   RM.counts = async id => {
     const l = await lines(id), out = {};
-    for (const [k, v] of Object.entries(RM.VIEWS)) out[k] = aggregateKeys(l, v.keys).filter(r => !r.ok).length;
+    for (const [k, v] of Object.entries(RM.VIEWS)) out[k] = aggregateKeys(l, v.keys, null, v.full).filter(r => !r.ok).length;
     out.warn = (await RM.warnings(id)).length;
     return out;
   };
@@ -433,48 +456,53 @@
     const d = new Date(), p = n => String(n).padStart(2, '0');
     return `受領照合_${m.cust}_${m.date_from.replace(/-/g, '')}-${m.date_to.replace(/-/g, '')}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.xlsx`;
   };
+  /** 切り口ごとの比較項目(画面・Excelで共通)。並びは 数量・重量・金額 で統一。idx は [金額,数量,重量] の位置 */
+  RM.measures = view => (RM.VIEWS[view] && RM.VIEWS[view].full)
+    ? [{ key: 'qty', label: '数量', idx: 1, fmt: 2 }, { key: 'wt', label: '重量', idx: 2, fmt: 3 }, { key: 'amt', label: '金額', idx: 0, fmt: 1 }]
+    : [{ key: 'amt', label: '金額', idx: 0, fmt: 1 }];
+  const mval = (arr, m) => (m.idx === 0 ? arr[0] : arr[m.idx] / 1000);
+
   RM.buildReport = async id => {
     const m = await RM.getMatch(id), t = await RM.totals(id), cnt = await RM.counts(id);
     const st = RM.xlStyle, FILL = { diff: 1, sonly: 2, ronly: 3 };
     const H = s => ({ v: s, s: st(0, 0, 1) }), B = s => ({ v: s, s: st(0, 0, 2) }), P = v => ({ v, s: st(0, 0, 4) });
     const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
     const sheets = [];
+    // サマリ: 画面の3枚のカード(売上額・受領額・差額)と同じ並び
     const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
       [B('販売先'), P(`${m.cust} ${m.cust_name || ''}`.trim())],
       [B('期間(取引日付)'), P(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`)],
       [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
       [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
       [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
-      [B('合計の判定'), { v: RM.JUDGE[t.judge][0], s: st(FILL[t.judge] || 0, 0, 0) }],
-      [H(''), H('金額(税抜)'), H('数量'), H('重量(kg)')]];
-    [['売上(自社)', t.s], ['受領(得意先)', t.r], ['差異(売上−受領)', t.d]].forEach(([lb, v]) => sum.push([C(lb), C(v[0], 0, 1), C(v[1] / 1000, 0, 2), C(v[2] / 1000, 0, 3)]));
-    sum.push([], [H('切り口'), H('不一致の件数')]);
-    for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k])]);
-    sum.push([C('変換警告'), C(cnt.warn)]);
-    sheets.push({ name: 'サマリ', widths: [22, 40, 14, 14], rows: sum });
+      [H('売上額(自社)'), H('受領額(得意先)'), H('差額(売上−受領)')],
+      [{ v: t.s[0], s: st(0, 0, 5) }, { v: t.r[0], s: st(0, 0, 5) }, { v: t.d[0], s: st(0, 0, t.d[0] ? 6 : 7) }],
+      [P('売上データ 合計'), P('受領データ 合計'), P(t.d[0] ? '日別シートで内訳を確認' : '一致')], [],
+      [H('切り口'), H('不一致の件数'), H('比較項目')]];
+    for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k]), C(v.full ? '数量・重量・金額' : '金額')]);
+    sum.push([C('変換警告'), C(cnt.warn), C('商品コードの変換')]);
+    sheets.push({ name: 'サマリ', widths: [24, 24, 24, 10], rows: sum });
     for (const [view, v] of Object.entries(RM.VIEWS)) {
-      const head = [v.k1].concat(v.k2 ? [v.k2] : [], ['売上 金額', '売上 数量', '売上 重量', '受領 金額', '受領 数量', '受領 重量', '差異 金額', '差異 数量', '差異 重量', '判定', '確認済', 'コメント', '確認更新日時']);
+      const ms = RM.measures(view);
+      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定', '確認済', 'コメント', '確認更新日時']);
       const rows = [head.map(H)];
       for (const r of await RM.aggregate(id, view)) {
-        const f = FILL[r.judge] || 0, out = [C(r.k1, f)];
-        if (v.k2) out.push(C(r.k2, f));
-        for (const tr of [r.s, r.r]) {
-          if (tr) out.push(C(tr[0], f, 1), C(tr[1] / 1000, f, 2), C(tr[2] / 1000, f, 3));
-          else out.push(C(null, f), C(null, f), C(null, f));
-        }
-        out.push(C(r.d[0], f, 1), C(r.d[1] / 1000, f, 2), C(r.d[2] / 1000, f, 3), C(r.judge_label, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
+        const f = FILL[r.judge] || 0, out = r.cells.map(c => C(c, f));
+        for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
+        out.push(C(v.full ? r.judge_label : r.judge_short, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
         rows.push(out);
       }
+      const kw = { day: [12], store: [12, 12, 20], slip: [16, 24, 22], item: [12, 12, 30] }[view];
       sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, filter: true, rows,
-        widths: [16].concat(v.k2 ? [34] : [], [13, 10, 11, 13, 10, 11, 13, 10, 11, 20, 8, 40, 17]) });
+        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10, 8, 40, 17]) });
     }
-    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 金額', '受領 数量', '受領 重量', '受領ファイル行'].map(H)];
+    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)];
     for (const w of await RM.warnings(id)) {
       const f = w.conv_status === 'none' ? 3 : 1;
-      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(w.store, f), C(w.partner_code, f), C(w.name, f),
-        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.amt, f, 1), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.row_no, f)]);
+      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
+        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
     }
-    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 14, 18, 28, 22, 50, 12, 10, 11, 12] });
+    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
     return RM.writeXlsx(sheets);
   };
 

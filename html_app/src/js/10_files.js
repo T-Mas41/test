@@ -326,9 +326,10 @@
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
 
   // スタイル: fill 0なし 1黄 2青 3赤 4見出し(紺) / fmt 0なし 1金額 2数量 3重量 / bold
-  const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];
+  const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];  // 見出しの色は fillId 6
   const FMTS = [0, 164, 165, 166];
-  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし
+  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+    if (kind >= 5) return 15 + kind;
     if (kind === 1) return 1;
     if (kind === 2) return 2;
     if (kind === 3) return 3;
@@ -344,20 +345,28 @@
     for (let f = 0; f < 4; f++) for (let n = 0; n < 4; n++) {
       xfs += `<xf numFmtId="${FMTS[n]}" fontId="0" fillId="${f === 0 ? 0 : f + 1}" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>`;
     }
+    // 20: 大きな金額 21: 大きな金額(赤背景) 22: 大きな金額(緑背景)
+    xfs += '<xf numFmtId="164" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' +
+      '<xf numFmtId="164" fontId="5" fillId="7" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
+      '<xf numFmtId="164" fontId="4" fillId="8" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>';
     const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
       FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
-      '<fonts count="4"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<fonts count="6"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
-      `<fills count="${2 + FILLS.length - 1 + 1}">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF17324D"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="9">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFFDEDED"/><bgColor indexed="64"/></patternFill></fill>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
       '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
       '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      `<cellXfs count="${4 + 16}">${xfs}</cellXfs>` +
+      `<cellXfs count="${4 + 16 + 3}">${xfs}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   }
 

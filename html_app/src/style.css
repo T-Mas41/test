@@ -97,10 +97,6 @@ input[type=checkbox]{accent-color:var(--primary);width:16px;height:16px}
 .msg-err{background:#FFF0F2;color:var(--r)}
 .msg-warn{background:#FFF8E5;color:var(--diff)}
 .step{display:inline-flex;width:28px;height:28px;border-radius:10px;background:var(--grad);color:#fff;font-size:13px;align-items:center;justify-content:center;margin-right:10px;font-weight:700}
-.drop{border:2px dashed #CFC2FA;border-radius:14px;padding:20px;text-align:center;color:#7A768C;font-size:13px;display:flex;flex-direction:column;gap:8px;align-items:center;background:#FBFAFF;cursor:pointer}
-.drop.over{border-color:var(--primary);background:var(--primary-l)}
-.drop input[type=file]{max-width:100%}
-.fname{color:var(--primary-d);font-weight:700}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;font-size:13px}.kv>:nth-child(odd){color:#777189}
 .info{display:flex;flex-wrap:wrap;gap:28px;background:var(--surface);border-radius:18px;padding:16px 22px;font-size:13px;box-shadow:var(--shadow)}
 .info .k{color:#777189;font-size:12px}.info .v{font-weight:700;margin-top:2px}
@@ -126,3 +122,45 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 .wide2 .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:1560px){.side{width:220px;flex-basis:220px;padding:22px 14px}.main{padding:24px}
   .tbl.compact td,.tbl.compact th{padding:8px 5px}.tbl.compact td.cm{min-width:110px}.tbl.compact td.cm .cin{min-width:100px}}
+
+/* ファイル選択欄(未選択/セット済みを明確に) */
+.dropwrap{display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:100%}
+.drop{position:relative;width:100%;display:flex;align-items:center;gap:14px;padding:18px 20px;border:2px dashed #CFC2FA;border-radius:14px;background:#FBFAFF;cursor:pointer;transition:background .15s,border-color .15s}
+.drop:hover{border-color:var(--primary2);background:#F7F4FF}
+.drop:focus-within{outline:3px solid #C9B8FF;outline-offset:2px}
+.drop.over{border-color:var(--primary);border-style:solid;background:var(--primary-l)}
+.drop-input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.drop-icon{flex:0 0 auto;display:flex;color:var(--primary)}
+.drop-icon.icon-set{display:none}
+.drop-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.drop-title{font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-sub{font-size:12px;color:#7A768C}
+.drop-state{flex:0 0 auto;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;background:#EEEAF8;color:#6E6A82}
+.drop.is-set{border-style:solid;border-color:#3FA46A;background:#EFFAF3}
+.drop.is-set .icon-empty{display:none}.drop.is-set .icon-set{display:flex;color:#1F8A4C}
+.drop.is-set .drop-title{color:#14532D}
+.drop.is-set .drop-state{background:#1F8A4C;color:#fff}
+/* 作業ステップ(縦並び) */
+.vsteps{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column}
+.vsteps li{position:relative;display:flex;align-items:center;gap:14px;padding:12px 4px 12px 0}
+.vsteps li:not(:last-child)::after{content:"";position:absolute;left:17px;top:48px;bottom:-12px;width:2px;background:#E5DDFF}
+.vsteps li.done:not(:last-child)::after{background:#A7DDBC}
+.vsteps .num{flex:0 0 36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;background:#EEEAF8;color:#6E6A82;position:relative;z-index:1}
+.vsteps li.done .num{background:#1F8A4C;color:#fff}
+.vsteps li.current .num{background:var(--grad);color:#fff;box-shadow:0 0 0 5px #EDE8FF}
+.vs-body{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.vs-body b{font-size:14px}.vs-body span{font-size:12.5px;color:#6E6A82}
+.vsteps li.current .vs-body b{color:var(--primary-d)}
+.vs-state{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#EEEAF8;color:#6E6A82}
+.vsteps li.done .vs-state{background:var(--ok-bg);color:var(--ok)}
+.vsteps li.current .vs-state{background:#EDE8FF;color:var(--primary-d)}
+/* 合計カード(売上額・受領額・差額) */
+.tcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.tcard{background:#fff;border:1px solid #E6E1F5;border-radius:6px;padding:14px 22px 12px;display:flex;flex-direction:column;gap:6px}
+.tcard .k{font-size:14px;color:#3A3650}
+.tcard .v{font-size:30px;font-weight:700;color:#25233A;font-variant-numeric:tabular-nums;padding:4px 0}
+.tcard .d{font-size:12.5px;color:#6E6A82}
+.tcard.is-diff{background:#FDEDED;border-color:#F4C7C7}.tcard.is-diff .k,.tcard.is-diff .v,.tcard.is-diff .d,.tcard.is-diff a{color:#B42318}
+.tcard.is-ok{background:#EFFAF3;border-color:#BFE3CC}.tcard.is-ok .k,.tcard.is-ok .v,.tcard.is-ok .d{color:#1B6236}
+@media (max-width:900px){.tcards{grid-template-columns:1fr}}
+.tbl.compact th.n{line-height:1.3}

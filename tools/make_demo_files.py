@@ -16,7 +16,8 @@ def main(out: Path) -> None:
     (out / "デモ_受領データ_標準.xlsx").write_bytes(dd.receipt_xlsx(dd.RECEIPT))
     (out / "デモ_受領データ_BMS.csv").write_bytes(dd.receipt_bms_csv(dd.RECEIPT))
     (out / "デモ_販売台帳.xlsx").write_bytes(dd.ledger_xlsx(dd.LEDGER))
-    print(f"作成しました: {out}(販売先 {dd.CUST}、期間 2026/11/01〜2026/11/10 で照合できます)")
+    (out / "デモ_売上データ_複数販売先.xlsx").write_bytes(dd.sales_xlsx(dd.SALES_MULTI))
+    print(f"作成しました: {out}(期間 2026/11/01〜2026/11/10 で照合できます。販売先は売上データから自動で判定されます)")
 
 
 if __name__ == "__main__":

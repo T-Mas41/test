@@ -107,10 +107,6 @@ input[type=checkbox]{accent-color:var(--primary);width:16px;height:16px}
 .msg-err{background:#FFF0F2;color:var(--r)}
 .msg-warn{background:#FFF8E5;color:var(--diff)}
 .step{display:inline-flex;width:28px;height:28px;border-radius:10px;background:var(--grad);color:#fff;font-size:13px;align-items:center;justify-content:center;margin-right:10px;font-weight:700}
-.drop{border:2px dashed #CFC2FA;border-radius:14px;padding:20px;text-align:center;color:#7A768C;font-size:13px;display:flex;flex-direction:column;gap:8px;align-items:center;background:#FBFAFF;cursor:pointer}
-.drop.over{border-color:var(--primary);background:var(--primary-l)}
-.drop input[type=file]{max-width:100%}
-.fname{color:var(--primary-d);font-weight:700}
 .kv{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;font-size:13px}.kv>:nth-child(odd){color:#777189}
 .info{display:flex;flex-wrap:wrap;gap:28px;background:var(--surface);border-radius:18px;padding:16px 22px;font-size:13px;box-shadow:var(--shadow)}
 .info .k{color:#777189;font-size:12px}.info .v{font-weight:700;margin-top:2px}
@@ -136,6 +132,48 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 .wide2 .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:1560px){.side{width:220px;flex-basis:220px;padding:22px 14px}.main{padding:24px}
   .tbl.compact td,.tbl.compact th{padding:8px 5px}.tbl.compact td.cm{min-width:110px}.tbl.compact td.cm .cin{min-width:100px}}
+
+/* ファイル選択欄(未選択/セット済みを明確に) */
+.dropwrap{display:flex;flex-direction:column;gap:8px;align-items:flex-start;width:100%}
+.drop{position:relative;width:100%;display:flex;align-items:center;gap:14px;padding:18px 20px;border:2px dashed #CFC2FA;border-radius:14px;background:#FBFAFF;cursor:pointer;transition:background .15s,border-color .15s}
+.drop:hover{border-color:var(--primary2);background:#F7F4FF}
+.drop:focus-within{outline:3px solid #C9B8FF;outline-offset:2px}
+.drop.over{border-color:var(--primary);border-style:solid;background:var(--primary-l)}
+.drop-input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.drop-icon{flex:0 0 auto;display:flex;color:var(--primary)}
+.drop-icon.icon-set{display:none}
+.drop-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.drop-title{font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-sub{font-size:12px;color:#7A768C}
+.drop-state{flex:0 0 auto;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;background:#EEEAF8;color:#6E6A82}
+.drop.is-set{border-style:solid;border-color:#3FA46A;background:#EFFAF3}
+.drop.is-set .icon-empty{display:none}.drop.is-set .icon-set{display:flex;color:#1F8A4C}
+.drop.is-set .drop-title{color:#14532D}
+.drop.is-set .drop-state{background:#1F8A4C;color:#fff}
+/* 作業ステップ(縦並び) */
+.vsteps{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column}
+.vsteps li{position:relative;display:flex;align-items:center;gap:14px;padding:12px 4px 12px 0}
+.vsteps li:not(:last-child)::after{content:"";position:absolute;left:17px;top:48px;bottom:-12px;width:2px;background:#E5DDFF}
+.vsteps li.done:not(:last-child)::after{background:#A7DDBC}
+.vsteps .num{flex:0 0 36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;background:#EEEAF8;color:#6E6A82;position:relative;z-index:1}
+.vsteps li.done .num{background:#1F8A4C;color:#fff}
+.vsteps li.current .num{background:var(--grad);color:#fff;box-shadow:0 0 0 5px #EDE8FF}
+.vs-body{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.vs-body b{font-size:14px}.vs-body span{font-size:12.5px;color:#6E6A82}
+.vsteps li.current .vs-body b{color:var(--primary-d)}
+.vs-state{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px;background:#EEEAF8;color:#6E6A82}
+.vsteps li.done .vs-state{background:var(--ok-bg);color:var(--ok)}
+.vsteps li.current .vs-state{background:#EDE8FF;color:var(--primary-d)}
+/* 合計カード(売上額・受領額・差額) */
+.tcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.tcard{background:#fff;border:1px solid #E6E1F5;border-radius:6px;padding:14px 22px 12px;display:flex;flex-direction:column;gap:6px}
+.tcard .k{font-size:14px;color:#3A3650}
+.tcard .v{font-size:30px;font-weight:700;color:#25233A;font-variant-numeric:tabular-nums;padding:4px 0}
+.tcard .d{font-size:12.5px;color:#6E6A82}
+.tcard.is-diff{background:#FDEDED;border-color:#F4C7C7}.tcard.is-diff .k,.tcard.is-diff .v,.tcard.is-diff .d,.tcard.is-diff a{color:#B42318}
+.tcard.is-ok{background:#EFFAF3;border-color:#BFE3CC}.tcard.is-ok .k,.tcard.is-ok .v,.tcard.is-ok .d{color:#1B6236}
+@media (max-width:900px){.tcards{grid-template-columns:1fr}}
+.tbl.compact th.n{line-height:1.3}
 
 </style>
 </head>
@@ -497,9 +535,10 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
 
   // スタイル: fill 0なし 1黄 2青 3赤 4見出し(紺) / fmt 0なし 1金額 2数量 3重量 / bold
-  const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];
+  const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];  // 見出しの色は fillId 6
   const FMTS = [0, 164, 165, 166];
-  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし
+  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし 5大きな金額 6大きな金額(赤背景) 7大きな金額(緑背景)
+    if (kind >= 5) return 15 + kind;
     if (kind === 1) return 1;
     if (kind === 2) return 2;
     if (kind === 3) return 3;
@@ -515,20 +554,28 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     for (let f = 0; f < 4; f++) for (let n = 0; n < 4; n++) {
       xfs += `<xf numFmtId="${FMTS[n]}" fontId="0" fillId="${f === 0 ? 0 : f + 1}" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>`;
     }
+    // 20: 大きな金額 21: 大きな金額(赤背景) 22: 大きな金額(緑背景)
+    xfs += '<xf numFmtId="164" fontId="4" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>' +
+      '<xf numFmtId="164" fontId="5" fillId="7" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
+      '<xf numFmtId="164" fontId="4" fillId="8" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>';
     const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
       FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
       '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
-      '<fonts count="4"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<fonts count="6"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
       '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
-      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
-      `<fills count="${2 + FILLS.length - 1 + 1}">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF17324D"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="16"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="16"/><color rgb="FFB42318"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="9">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF6D4CE5"/><bgColor indexed="64"/></patternFill></fill>` +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFFDEDED"/><bgColor indexed="64"/></patternFill></fill>' +
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE8F6EE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
       '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
       '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
       '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-      `<cellXfs count="${4 + 16}">${xfs}</cellXfs>` +
+      `<cellXfs count="${4 + 16 + 3}">${xfs}</cellXfs>` +
       '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   }
 
@@ -726,7 +773,8 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   const cell = (row, col) => (row ? row[col] : undefined);
 
   // ================================================================ 売上(固定レイアウト・188列、列は位置で特定)
-  RM.SALES_COLS = { cust: 7, cust_name: 8, store: 81, store_name: 82, tdate: 137, order_no: 35, own_code: 9, name: 10, qty: 33, wt: 32, amt: 58, slip_no: 18 };
+  // 自社商品コードは「商品識別コード」(9桁・50列目)を使う
+  RM.SALES_COLS = { cust: 7, cust_name: 8, store: 81, store_name: 82, tdate: 137, order_no: 35, own_code: 50, name: 10, qty: 33, wt: 32, amt: 58, slip_no: 18 };
 
   function checkHeaders(header, cols, expected, label) {
     const errs = [];
@@ -738,38 +786,53 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   }
 
   const hasAny = r => !!r.any || r.some(v => !isBlank(v));
+  // 自社商品コード(商品識別コード)は9桁。Excelで数値になり先頭ゼロが落ちた場合は補う
+  const ownCode = v => { const s = text(v).normalize('NFKC').trim(); return /^\d{1,8}$/.test(s) ? s.padStart(9, '0') : s; };
+  RM.ownCode = ownCode;
   RM.hasAny = hasAny;
 
-  async function parseSales(buf, cust, dfrom, dto, onProgress) {
+  /** 売上データを読む。販売先はデータ内の販売先コードで判定し、複数あればエラー。 */
+  async function parseSales(buf, dfrom, dto, onProgress) {
     const rows = await RM.readXlsx(buf, { onProgress, cols: Object.values(RM.SALES_COLS) });
     if (!rows.length) throw new ReadError('売上データが空です。');
     checkHeaders(rows[0], RM.SALES_COLS, RM.SALES_HEADERS, '売上データ');
-    const C = RM.SALES_COLS, ck = code(cust);
+    const C = RM.SALES_COLS;
+    const isKeyBlank = r => isBlank(cell(r, C.tdate)) && isBlank(cell(r, C.order_no)) && isBlank(cell(r, C.own_code));
+    const custs = new Map();
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (isKeyBlank(r)) continue;
+      const c = code(cell(r, C.cust));
+      if (!custs.has(c)) custs.set(c, { n: 0, name: text(cell(r, C.cust_name)) });
+      custs.get(c).n++;
+    }
+    if (!custs.size) throw new ReadError('売上データにデータ行がありません。');
+    if (custs.size > 1) {
+      throw new ReadError('売上データに複数の販売先コードが含まれています(' +
+        [...custs.entries()].map(([c, v]) => `${c || '(空欄)'}${v.name ? ' ' + v.name : ''}:${v.n.toLocaleString()}行`).join('、') +
+        ')。販売先ごとに分けた売上データを取り込んでください。');
+    }
+    const [cust, info] = [...custs.entries()][0];
+    if (!cust) throw new ReadError('売上データの販売先コード(7列目)が空欄です。');
     const lines = [], errors = [];
     const stats = { total: 0, target: 0, skipped_blank: 0, other_cust: 0, out_of_period: 0, error: 0 };
-    let custName = '';
     for (let i = 1; i < rows.length; i++) {
       const r = rows[i], g = k => cell(r, C[k]);
-      if (isBlank(g('tdate')) && isBlank(g('order_no')) && isBlank(g('own_code'))) {
-        if (hasAny(r)) stats.skipped_blank++;
-        continue;
-      }
+      if (isKeyBlank(r)) { if (hasAny(r)) stats.skipped_blank++; continue; }
       stats.total++;
-      if (code(g('cust')) !== ck) { stats.other_cust++; continue; }
       let td, q, w, a;
       try { td = date(g('tdate')); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
       catch (e) { stats.error++; errors.push({ file: '売上', row: i + 1, msg: e.message }); continue; }
       if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
-      custName = custName || text(g('cust_name'));
       lines.push({ row_no: i + 1, store: code(g('store')), store_name: text(g('store_name')), tdate: td, order_no: code(g('order_no')),
-        slip_no: text(g('slip_no')), own_code: code(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
+        slip_no: text(g('slip_no')), own_code: ownCode(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
     }
     stats.target = lines.length;
-    return { lines, errors, stats, custName };
+    return { lines, errors, stats, cust, custName: info.name };
   }
 
   // ================================================================ 販売台帳
-  RM.LEDGER_COLS = { deleted: 1, own_code: 59, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
+  RM.LEDGER_COLS = { deleted: 1, own_code: 57, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
   RM.STORE_ANY = '99999999999';
 
   RM.importLedger = importLedger;
@@ -785,7 +848,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
       total++;
       const g = k => cell(r, C[k]);
       if (text(g('deleted')) === '9') { deleted++; continue; }
-      const pc = code(g('partner_code')), oc = code(g('own_code'));
+      const pc = code(g('partner_code')), oc = ownCode(g('own_code'));
       if (!pc || !oc) { skipped++; continue; }
       recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name'))]);
     }
@@ -972,24 +1035,29 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   }
 
   // ================================================================ 照合
+  // full: 数量・重量も比較・表示する(日別商品別のみ)。それ以外は金額のみ
   RM.VIEWS = {
-    day: { label: '日別', keys: ['tdate'], k1: '取引日付', k2: '' },
-    store: { label: '日別店別', keys: ['tdate', 'store'], k1: '取引日付', k2: '店舗' },
-    slip: { label: '伝票番号別', keys: ['order_no'], k1: '相手先注文番号', k2: '取引日付・店舗' },
-    item: { label: '日別商品別', keys: ['tdate', 'own_code'], k1: '取引日付', k2: '自社商品コード・商品名' },
+    day: { label: '日別', keys: ['tdate'], heads: ['取引日付'], full: false },
+    store: { label: '日別店別', keys: ['tdate', 'store'], heads: ['取引日付', '店舗コード', '店舗名'], full: false },
+    slip: { label: '伝票番号別', keys: ['order_no'], heads: ['相手先注文番号', '取引日付', '店舗'], full: false },
+    item: { label: '日別商品別', keys: ['tdate', 'own_code'], heads: ['取引日付', '自社商品コード', '商品名'], full: true },
   };
+  for (const v of Object.values(RM.VIEWS)) v.k1 = v.heads[0];
   RM.JUDGE = { ok: ['一致', 'b-ok', ''], diff: ['差異あり', 'b-diff', 'r-diff'], sonly: ['自社のみ', 'b-s', 'r-s'], ronly: ['受領のみ', 'b-r', 'r-r'] };
   const MAX_ERRORS = 500;
 
   /** ファイルを読み込み、下書き(未保存)を返す。確定は confirm。 */
-  RM.stage = async ({ cust, dateFrom, dateTo, salesName, salesBuf, receiptName, receiptBuf, parentId, onProgress }) => {
-    cust = code(cust);
-    if (!cust) throw new ReadError('販売先コードを入力してください。');
+  RM.stage = async ({ dateFrom, dateTo, salesName, salesBuf, receiptName, receiptBuf, parentId, onProgress }) => {
     if (dateFrom > dateTo) throw new ReadError('期間の From が To より後になっています。');
+    onProgress && onProgress('売上データを読み込んでいます…');
+    const s = await parseSales(salesBuf, dateFrom, dateTo, n => onProgress && onProgress(`売上データを読み込んでいます…(${n.toLocaleString()}行)`));
+    const cust = s.cust;
+    if (parentId) {
+      const p = await RM.db.get('matches', parentId);
+      if (p && p.cust !== cust) throw new ReadError(`売上データの販売先(${cust})が、再取込元の照合の販売先(${p.cust})と異なります。`);
+    }
     const [lay, assigned] = await RM.layoutFor(cust);
     if (!lay) throw new ReadError('標準レイアウトが登録されていません。受領レイアウト画面で標準を指定してください。');
-    onProgress && onProgress('売上データを読み込んでいます…');
-    const s = await parseSales(salesBuf, cust, dateFrom, dateTo, n => onProgress && onProgress(`売上データを読み込んでいます…(${n.toLocaleString()}行)`));
     const led = await ledger();
     const conv = new Converter(led.rows, cust);
     onProgress && onProgress('受領データを読み込んでいます…');
@@ -1061,39 +1129,41 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     }
     return m;
   }
-  function compare(s, r) {
+  function compare(s, r, full = true) {
     const S = s ? [s.a, s.q, s.w] : [0, 0, 0], R = r ? [r.a, r.q, r.w] : [0, 0, 0];
     const d = [S[0] - R[0], S[1] - R[1], S[2] - R[2]];
-    const judge = !s ? 'ronly' : !r ? 'sonly' : (d.every(v => v === 0) ? 'ok' : 'diff');
-    const items = ['金額', '数量', '重量'].filter((_, i) => d[i] !== 0);
+    const diff = full ? d.some(v => v !== 0) : d[0] !== 0;
+    const judge = !s ? 'ronly' : !r ? 'sonly' : (diff ? 'diff' : 'ok');
+    const items = full ? ['数量', '重量', '金額'].filter((_, i) => [d[1], d[2], d[0]][i] !== 0) : [];
     const [label, badge, rowCls] = RM.JUDGE[judge];
-    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' ? `差異あり(${items.join('・')})` : label,
+    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' && items.length ? `差異あり(${items.join('・')})` : label,
       judge_short: label, badge, row_cls: rowCls, ok: judge === 'ok' };
   }
   RM.compare = compare;
-  function aggregateKeys(l, keys, filt) {
+  function aggregateKeys(l, keys, filt, full = true) {
     const sd = side(l.sales, keys, filt, false), rd = side(l.receipt, keys, filt, true);
     const all = [...new Set([...sd.keys(), ...rd.keys()])].sort();
-    return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
+    return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r, full), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
   }
   const md = set => [...set].sort().map(d => d.slice(5).replace('-', '/')).join(',');
 
   RM.aggregate = async (id, view) => {
     const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
-    const rows = aggregateKeys(l, v.keys);
+    const rows = aggregateKeys(l, v.keys, null, v.full);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
       const sname = (s && s.sname) || (r && r.sname) || '';
-      if (view === 'day') { row.k1 = fmtDate(k[0]); row.k2 = ''; }
-      else if (view === 'store') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${sname}`.trim(); }
-      else if (view === 'item') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${(s && s.iname) || (r && r.iname) || ''}`.trim(); }
+      if (view === 'day') row.cells = [fmtDate(k[0])];
+      else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
+      else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
       else {
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        const st = stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、');
-        row.k1 = k[0]; row.k2 = [dates, st].filter(Boolean).join(' ・ ');
+        row.cells = [k[0], dates, stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、')];
       }
+      row.k1 = row.cells[0];
+      row.k2 = row.cells.slice(1).filter(Boolean).join(' ・ ');
       const c = cf[view + '|' + row.key_str];
       row.checked = !!(c && c.checked); row.comment = c ? c.comment : ''; row.updated_at = c ? c.updated_at : '';
     }
@@ -1103,7 +1173,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const l = await lines(id);
     const sum = ls => ls.length ? { a: ls.reduce((t, x) => t + x.amt, 0), q: ls.reduce((t, x) => t + x.qty, 0), w: ls.reduce((t, x) => t + x.wt, 0) } : null;
     const s = sum(l.sales), r = sum(l.receipt);
-    const res = compare(s, r);
+    const res = compare(s, r, false);  // 合計は金額で判定
     res.s = res.s || [0, 0, 0]; res.r = res.r || [0, 0, 0];
     res.s_rows = l.sales.length; res.r_rows = l.receipt.length;
     return res;
@@ -1112,7 +1182,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     .sort((a, b) => (a.tdate + a.order_no + String(a.row_no).padStart(9, '0')).localeCompare(b.tdate + b.order_no + String(b.row_no).padStart(9, '0')));
   RM.counts = async id => {
     const l = await lines(id), out = {};
-    for (const [k, v] of Object.entries(RM.VIEWS)) out[k] = aggregateKeys(l, v.keys).filter(r => !r.ok).length;
+    for (const [k, v] of Object.entries(RM.VIEWS)) out[k] = aggregateKeys(l, v.keys, null, v.full).filter(r => !r.ok).length;
     out.warn = (await RM.warnings(id)).length;
     return out;
   };
@@ -1152,48 +1222,53 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
     const d = new Date(), p = n => String(n).padStart(2, '0');
     return `受領照合_${m.cust}_${m.date_from.replace(/-/g, '')}-${m.date_to.replace(/-/g, '')}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.xlsx`;
   };
+  /** 切り口ごとの比較項目(画面・Excelで共通)。並びは 数量・重量・金額 で統一。idx は [金額,数量,重量] の位置 */
+  RM.measures = view => (RM.VIEWS[view] && RM.VIEWS[view].full)
+    ? [{ key: 'qty', label: '数量', idx: 1, fmt: 2 }, { key: 'wt', label: '重量', idx: 2, fmt: 3 }, { key: 'amt', label: '金額', idx: 0, fmt: 1 }]
+    : [{ key: 'amt', label: '金額', idx: 0, fmt: 1 }];
+  const mval = (arr, m) => (m.idx === 0 ? arr[0] : arr[m.idx] / 1000);
+
   RM.buildReport = async id => {
     const m = await RM.getMatch(id), t = await RM.totals(id), cnt = await RM.counts(id);
     const st = RM.xlStyle, FILL = { diff: 1, sonly: 2, ronly: 3 };
     const H = s => ({ v: s, s: st(0, 0, 1) }), B = s => ({ v: s, s: st(0, 0, 2) }), P = v => ({ v, s: st(0, 0, 4) });
     const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
     const sheets = [];
+    // サマリ: 画面の3枚のカード(売上額・受領額・差額)と同じ並び
     const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
       [B('販売先'), P(`${m.cust} ${m.cust_name || ''}`.trim())],
       [B('期間(取引日付)'), P(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`)],
       [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
       [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
       [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
-      [B('合計の判定'), { v: RM.JUDGE[t.judge][0], s: st(FILL[t.judge] || 0, 0, 0) }],
-      [H(''), H('金額(税抜)'), H('数量'), H('重量(kg)')]];
-    [['売上(自社)', t.s], ['受領(得意先)', t.r], ['差異(売上−受領)', t.d]].forEach(([lb, v]) => sum.push([C(lb), C(v[0], 0, 1), C(v[1] / 1000, 0, 2), C(v[2] / 1000, 0, 3)]));
-    sum.push([], [H('切り口'), H('不一致の件数')]);
-    for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k])]);
-    sum.push([C('変換警告'), C(cnt.warn)]);
-    sheets.push({ name: 'サマリ', widths: [22, 40, 14, 14], rows: sum });
+      [H('売上額(自社)'), H('受領額(得意先)'), H('差額(売上−受領)')],
+      [{ v: t.s[0], s: st(0, 0, 5) }, { v: t.r[0], s: st(0, 0, 5) }, { v: t.d[0], s: st(0, 0, t.d[0] ? 6 : 7) }],
+      [P('売上データ 合計'), P('受領データ 合計'), P(t.d[0] ? '日別シートで内訳を確認' : '一致')], [],
+      [H('切り口'), H('不一致の件数'), H('比較項目')]];
+    for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k]), C(v.full ? '数量・重量・金額' : '金額')]);
+    sum.push([C('変換警告'), C(cnt.warn), C('商品コードの変換')]);
+    sheets.push({ name: 'サマリ', widths: [24, 24, 24, 10], rows: sum });
     for (const [view, v] of Object.entries(RM.VIEWS)) {
-      const head = [v.k1].concat(v.k2 ? [v.k2] : [], ['売上 金額', '売上 数量', '売上 重量', '受領 金額', '受領 数量', '受領 重量', '差異 金額', '差異 数量', '差異 重量', '判定', '確認済', 'コメント', '確認更新日時']);
+      const ms = RM.measures(view);
+      const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定', '確認済', 'コメント', '確認更新日時']);
       const rows = [head.map(H)];
       for (const r of await RM.aggregate(id, view)) {
-        const f = FILL[r.judge] || 0, out = [C(r.k1, f)];
-        if (v.k2) out.push(C(r.k2, f));
-        for (const tr of [r.s, r.r]) {
-          if (tr) out.push(C(tr[0], f, 1), C(tr[1] / 1000, f, 2), C(tr[2] / 1000, f, 3));
-          else out.push(C(null, f), C(null, f), C(null, f));
-        }
-        out.push(C(r.d[0], f, 1), C(r.d[1] / 1000, f, 2), C(r.d[2] / 1000, f, 3), C(r.judge_label, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
+        const f = FILL[r.judge] || 0, out = r.cells.map(c => C(c, f));
+        for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
+        out.push(C(v.full ? r.judge_label : r.judge_short, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
         rows.push(out);
       }
+      const kw = { day: [12], store: [12, 12, 20], slip: [16, 24, 22], item: [12, 12, 30] }[view];
       sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, filter: true, rows,
-        widths: [16].concat(v.k2 ? [34] : [], [13, 10, 11, 13, 10, 11, 13, 10, 11, 20, 8, 40, 17]) });
+        widths: kw.concat(Array(ms.length * 3).fill(ms.length > 1 ? 11 : 14), [v.full ? 22 : 10, 8, 40, 17]) });
     }
-    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 金額', '受領 数量', '受領 重量', '受領ファイル行'].map(H)];
+    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 数量', '受領 重量', '受領 金額', '受領ファイル行'].map(H)];
     for (const w of await RM.warnings(id)) {
       const f = w.conv_status === 'none' ? 3 : 1;
-      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(w.store, f), C(w.partner_code, f), C(w.name, f),
-        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.amt, f, 1), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.row_no, f)]);
+      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
+        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
     }
-    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 14, 18, 28, 22, 50, 12, 10, 11, 12] });
+    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
     return RM.writeXlsx(sheets);
   };
 
@@ -1267,9 +1342,29 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
   }
   const head = (title, sub, actions = '', back = '') => `<div class="head"><div>${back}<h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${actions ? `<div class="right">${actions}</div>` : ''}</div>`;
   const judgeBadge = m => `<span class="b ${m.total_judge === 'ok' ? 'b-ok' : 'b-diff'}">${m.total_judge === 'ok' ? '一致' : '不一致'}</span>`;
+  const FMT = { amt: fAmt, qty: fQty, wt: fWt };
+  const fmtM = (x, arr) => FMT[x.key](arr[x.idx]);
   const dcell = (fn, v) => `<span class="${v === 0 ? 'zero' : v < 0 ? 'neg' : 'pos'}">${h(signed(fn, v))}</span>`;
   const dt = s => h((s || '').replace(/-/g, '/'));
-  const dropBox = (name, label, accept) => `<label class="drop">${h(label)}<input type="file" name="${name}" accept="${accept}" required><span class="fname"></span></label>`;
+  const ICON_UP = '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+  const ICON_OK = '<svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 10"/></svg>';
+  // ファイル選択欄: 未選択/セット済みを色・アイコン・文言ではっきり区別する
+  const dropBox = (name, label, accept) => `<div class="dropwrap">
+    <label class="drop" data-label="${h(label)}">
+      <input type="file" name="${name}" accept="${accept}" required class="drop-input">
+      <span class="drop-icon icon-empty">${ICON_UP}</span><span class="drop-icon icon-set">${ICON_OK}</span>
+      <span class="drop-text"><strong class="drop-title">${h(label)}</strong><span class="drop-sub">ここにドラッグ&ドロップ、またはクリックして選択</span></span>
+      <span class="drop-state">未選択</span>
+    </label>
+    <button type="button" class="btn btn-s drop-clear" hidden>選択を取り消す</button></div>`;
+  function setDropState(inp) {
+    const d = inp.closest('.drop'), w = inp.closest('.dropwrap'), f = inp.files && inp.files[0];
+    d.classList.toggle('is-set', !!f);
+    d.querySelector('.drop-title').textContent = f ? f.name : d.dataset.label;
+    d.querySelector('.drop-sub').textContent = f ? `${(f.size / 1024).toLocaleString('en-US', { maximumFractionDigits: 0 })} KB ・ クリックで選び直し` : 'ここにドラッグ&ドロップ、またはクリックして選択';
+    d.querySelector('.drop-state').textContent = f ? '✓ セット済み' : '未選択';
+    if (w) w.querySelector('.drop-clear').hidden = !f;
+  }
   const opt = (v, label, sel) => `<option value="${h(v)}"${sel ? ' selected' : ''}>${h(label)}</option>`;
 
   async function customers() {
@@ -1296,6 +1391,7 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
       { no: '04', name: '差異の確認', done: ms.length > 0 && unc === 0, text: !ms.length ? '未実施' : unc ? `未確認 ${unc}件` : 'すべて確認済', href: '#/matches' + (unc ? '?unchecked=1' : '') },
     ];
     const pct = Math.round(steps.filter(x => x.done).length / steps.length * 100);
+    const cur = steps.findIndex(x => !x.done);
     const recent = ms.slice(0, 5);
     return { nav: 'list', title: 'ホーム', html: `
 ${head('作業ダッシュボード', '売上データと受領データの照合状況を確認できます', '<a href="#/new" class="btn btn-p">+ 照合データを取り込む</a>')}
@@ -1304,9 +1400,13 @@ ${head('作業ダッシュボード', '売上データと受領データの照�
   <div class="card stat"><div class="k">受領レイアウト</div><div class="v">${lays.length}<span class="sub"> 件</span></div><div class="d">得意先割当 ${asg.length}件</div></div>
   <div class="card stat"><div class="k">照合</div><div class="v">${ms.length}<span class="sub"> 件</span></div><div class="d">不一致 ${ms.filter(m => m.total_judge !== 'ok').length}件</div></div>
   <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v ${unc ? 'warnv' : ''}">${unc}<span class="sub"> 件</span></div><div class="d">${uncM}照合にまたがる</div></div>
-  <div class="card wide2"><h2>作業ステップ</h2>
-    <div class="steps">${steps.map(x => `<a class="stepc ${x.done ? 'done' : ''}" href="${x.href}"><b>${x.no} ${x.name}</b><span>${x.done ? '✓ ' : ''}${h(x.text)}</span></a>`).join('')}</div>
-    <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="作業の進み具合"><i style="width:${pct}%"></i></div></div>
+  <div class="card wide2"><div class="row"><h2>作業ステップ</h2><span class="right sub">進み具合 ${pct}%</span></div>
+    <div class="progress" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="作業の進み具合"><i style="width:${pct}%"></i></div>
+    <ol class="vsteps">${steps.map((x, i) => `<li class="${x.done ? 'done' : i === cur ? 'current' : ''}">
+      <span class="num">${x.done ? '✓' : i + 1}</span>
+      <div class="vs-body"><b>${x.name}</b><span>${h(x.text)}</span></div>
+      <span class="vs-state">${x.done ? '完了' : i === cur ? '次の作業' : '未実施'}</span>
+      <a class="btn btn-s ${i === cur ? 'btn-p' : ''}" href="${x.href}">${i === cur ? '進める' : '開く'}</a></li>`).join('')}</ol></div>
   <div class="card wide2"><div class="row"><h2>最近の照合</h2><div class="right"><a href="#/matches" class="btn btn-s">すべて見る</a></div></div>
     <div class="tblwrap"><table class="tbl"><thead><tr><th>販売先</th><th>期間</th><th class="n">差異(金額)</th><th class="n">未確認</th><th>判定</th></tr></thead>
     <tbody>${recent.map(m => `<tr><td><a href="#/match/${m.id}">${h(m.cust)} ${h(m.cust_name || '')}</a></td><td>${fmtDate(m.date_from).slice(5)}〜${fmtDate(m.date_to).slice(5)}</td>
@@ -1349,32 +1449,31 @@ ${head('照合一覧', `全 ${all.length}件 ・ 未確認の差異 ${unc}件(${
   // ---------------------------------------------------------------- 新規照合・取込
   async function pageNew(q) {
     const parent = q.get('parent') ? await RM.getMatch(+q.get('parent')) : null;
-    const meta = await RM.ledgerMeta(), custs = await customers(), asg = await RM.assignments();
+    const meta = await RM.ledgerMeta(), asg = await RM.assignments();
     const std = (await RM.layouts()).find(l => l.is_standard);
     const lmap = Object.fromEntries((await RM.layouts()).map(l => [l.id, l.name]));
     return { nav: 'new', title: parent ? '再取込・再照合' : '新規照合', html: `
-${head(parent ? '再取込・再照合' : '新規照合', '販売先と期間を指定して、売上データと受領データを取り込みます')}
+${head(parent ? '再取込・再照合' : '新規照合', '期間を指定して、売上データと受領データを取り込みます(販売先は売上データから自動で判定)')}
 ${meta ? '' : '<div class="msg msg-warn">販売台帳が未取込です。受領データの商品コードがすべて「変換不可」になります。先に<a href="#/ledger">販売台帳</a>を取り込んでください。</div>'}
 <form data-form="new" style="display:flex;flex-direction:column;gap:18px;max-width:1100px">
 ${parent ? `<input type="hidden" name="parent" value="${parent.id}">` : ''}
 <section class="card">
-  <h2><span class="step">1</span>照合条件</h2>
+  <h2><span class="step">1</span>照合条件(期間)</h2>
   <div class="filters">
-    ${parent ? `<div class="lbl">販売先<div class="fld" style="display:flex;align-items:center;min-width:260px">${h(parent.cust)} ${h(parent.cust_name || '')}</div></div>`
-    : `<label class="lbl">販売先コード<input class="fld" name="cust" list="custs" required style="min-width:260px" placeholder="例 20005525" autocomplete="off">
-      <datalist id="custs">${custs.map(([c, n]) => `<option value="${h(c)}">${h(c)} ${h(n)}</option>`).join('')}</datalist></label>`}
+    ${parent ? `<div class="lbl">販売先(再取込元)<div class="fld" style="display:flex;align-items:center;min-width:220px">${h(parent.cust)} ${h(parent.cust_name || '')}</div></div>` : ''}
     <label class="lbl">取引日付 From<input class="fld" name="from" required placeholder="YYYY/MM/DD" value="${parent ? fmtDate(parent.date_from) : ''}" style="width:150px"></label>
     <label class="lbl">取引日付 To<input class="fld" name="to" required placeholder="YYYY/MM/DD" value="${parent ? fmtDate(parent.date_to) : ''}" style="width:150px"></label>
   </div>
-  <div class="sub">使用する受領レイアウト:販売先に割当があればそのレイアウト、なければ <strong>${h(std ? std.name : '(標準未設定)')}</strong>。
+  <div class="sub"><strong>販売先は、取り込んだ売上データの販売先コードから自動で判定します</strong>(1つの売上データに複数の販売先が含まれている場合はエラーになります)。</div>
+  <div class="sub">使用する受領レイアウト:判定した販売先に割当があればそのレイアウト、なければ <strong>${h(std ? std.name : '(標準未設定)')}</strong>。
   ${asg.length ? '割当のある販売先:' + asg.map(a => `${h(a.cust)}→${h(lmap[a.layout_id] || '')}`).join('、') : ''}</div>
   ${parent ? '<div class="sub">確定すると、この照合の明細を新しいファイルの内容で置き換えます。確認済み・コメントは同じキーの行に引き継がれます。</div>' : ''}
 </section>
 <section class="card">
   <h2><span class="step">2</span>ファイル取込</h2>
   <div class="grid2">
-    <div style="display:flex;flex-direction:column;gap:8px"><strong>自社売上データ(Excel .xlsx)</strong>${dropBox('sales', 'ここにファイルをドラッグ&ドロップ、またはファイルを選択', '.xlsx')}</div>
-    <div style="display:flex;flex-direction:column;gap:8px"><strong>受領データ(Excel .xlsx / CSV)</strong>${dropBox('receipt', 'ここにファイルをドラッグ&ドロップ、またはファイルを選択', '.xlsx,.csv,.txt')}</div>
+    <div style="display:flex;flex-direction:column;gap:8px"><strong>自社売上データ(Excel .xlsx)</strong>${dropBox('sales', '売上データ(.xlsx)', '.xlsx')}</div>
+    <div style="display:flex;flex-direction:column;gap:8px"><strong>受領データ(Excel .xlsx / CSV)</strong>${dropBox('receipt', '受領データ(.xlsx / .csv)', '.xlsx,.csv,.txt')}</div>
   </div>
   <div class="sub">次の画面で、取込件数・エラー・変換警告を確認してから照合を確定します。ファイルはこのPCの中だけで読み込まれます。</div>
 </section>
@@ -1434,7 +1533,7 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     warns = warns.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS);
     const base = '#/match/' + id;
     const href = p => base + qs({ view, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '', q: kw, page: p });
-    const V = RM.VIEWS[view];
+    const V = RM.VIEWS[view], ms = RM.measures(view);
     const tabs = Object.entries(RM.VIEWS).map(([k, v]) => `<a class="tab ${view === k ? 'on' : ''}" href="${base + qs({ view: k, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '' })}">${v.label} <span class="cnt ${cnt[k] ? 'has' : ''}">${cnt[k]}</span></a>`).join('') +
       `<a class="tab ${view === 'warn' ? 'on' : ''}" href="${base}?view=warn">変換警告 <span class="cnt ${cnt.warn ? 'has' : ''}">${cnt.warn}</span></a>`;
     let body;
@@ -1448,18 +1547,17 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     <span class="legend"><span class="b b-diff">差異あり</span><span class="b b-s">自社のみ</span><span class="b b-r">受領のみ</span><span class="b b-ok">一致</span></span>
   </form>
   <div class="inner"><table class="tbl compact">
-    <thead><tr><th>${V.k1}</th>${V.k2 ? `<th>${V.k2}</th>` : ''}
-      <th class="gs n">売上 金額</th><th class="gs n">売上 数量</th><th class="gs n">売上 重量</th>
-      <th class="gr n">受領 金額</th><th class="gr n">受領 数量</th><th class="gr n">受領 重量</th>
-      <th class="gd n">差異 金額</th><th class="gd n">差異 数量</th><th class="gd n">差異 重量</th><th>判定</th><th>確認済</th><th>コメント</th></tr></thead>
+    <thead><tr>${V.heads.map(x => `<th>${x}</th>`).join('')}
+      ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
+      <th>判定</th><th>確認済</th><th>コメント</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
-      <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.k1)}</a></td>${V.k2 ? `<td>${h(r.k2)}</td>` : ''}
-      ${[r.s, r.r].map(tr => tr ? `<td class="n">${fAmt(tr[0])}</td><td class="n">${fQty(tr[1])}</td><td class="n">${fWt(tr[2])}</td>` : '<td class="n zero">—</td><td class="n zero">—</td><td class="n zero">—</td>').join('')}
-      <td class="n">${dcell(fAmt, r.d[0])}</td><td class="n">${dcell(fQty, r.d[1])}</td><td class="n">${dcell(fWt, r.d[2])}</td>
+      <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map(c => `<td>${h(c)}</td>`).join('')}
+      ${[r.s, r.r].map(tr => ms.map(x => tr ? `<td class="n">${fmtM(x, tr)}</td>` : '<td class="n zero">—</td>').join('')).join('')}
+      ${ms.map(x => `<td class="n">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
       <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>
       <td style="text-align:center"><input type="checkbox" class="js-check" aria-label="確認済み"${r.checked ? ' checked' : ''}></td>
       <td class="cm"><input type="text" class="cin js-comment" aria-label="コメント" value="${h(r.comment)}" maxlength="1000"></td></tr>`).join('') ||
-      '<tr><td colspan="15" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>'}</tbody></table>
+      `<tr><td colspan="${V.heads.length + ms.length * 3 + 3}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
     ${pager(page, pages, total, href)}
     <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。確認済み・コメントは入力すると自動で保存されます。差異 = 売上 − 受領。</p></div>`;
     } else {
@@ -1475,13 +1573,12 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     return { nav: 'matches', title: '照合結果', html: `
 ${head(`照合結果:${h(m.cust)} ${h(m.cust_name || '')}`, `${fmtDate(m.date_from)}〜${fmtDate(m.date_to)} ・ ${h(m.sales_file)}(${fAmt(t.s_rows)}行) / ${h(m.receipt_file)}(${fAmt(t.r_rows)}行・${h(m.layout_name)}) ・ 照合日時 ${dt(m.matched_at)}`,
   `<a href="#/new?parent=${id}" class="btn">再取込・再照合</a><button type="button" class="btn btn-p" data-act="report" data-id="${id}">Excelレポート出力</button>`, '<a href="#/matches" class="back">← 照合一覧</a>')}
-<section class="card" aria-label="合計の照合"><div class="row" style="align-items:center;gap:20px">
-  <div style="min-width:140px"><div class="sub">合計の判定</div><span class="b ${t.badge} big">${h(t.judge_label)}</span></div>
-  <div class="tblwrap" style="flex:1 1 560px;border:0"><table class="tbl" style="font-size:14px">
-    <thead><tr><th></th><th class="n">金額(税抜)</th><th class="n">数量</th><th class="n">重量(kg)</th></tr></thead><tbody>
-    <tr><td><strong>売上(自社)</strong></td><td class="n">${fAmt(t.s[0])}</td><td class="n">${fQty(t.s[1])}</td><td class="n">${fWt(t.s[2])}</td></tr>
-    <tr><td><strong>受領(得意先)</strong></td><td class="n">${fAmt(t.r[0])}</td><td class="n">${fQty(t.r[1])}</td><td class="n">${fWt(t.r[2])}</td></tr>
-    <tr><td><strong>差異(売上−受領)</strong></td><td class="n">${dcell(fAmt, t.d[0])}</td><td class="n">${dcell(fQty, t.d[1])}</td><td class="n">${dcell(fWt, t.d[2])}</td></tr></tbody></table></div></div></section>
+<div class="tcards" aria-label="合計の照合">
+  <div class="tcard"><div class="k">売上額(自社)</div><div class="v">${fAmt(t.s[0])}</div><div class="d">売上データ 合計(${fAmt(t.s_rows)}行)</div></div>
+  <div class="tcard"><div class="k">受領額(得意先)</div><div class="v">${fAmt(t.r[0])}</div><div class="d">受領データ 合計(${fAmt(t.r_rows)}行)</div></div>
+  <div class="tcard ${t.d[0] ? 'is-diff' : 'is-ok'}"><div class="k">差額(売上−受領)</div><div class="v">${signed(fAmt, t.d[0])}</div>
+    <div class="d">${t.d[0] ? `<a href="${base}?view=day">日別で内訳を確認</a>` : '✓ 合計は一致しています'}</div></div>
+</div>
 <section class="panel"><nav class="tabs" aria-label="照合の切り口">${tabs}</nav>${body}</section>` };
   }
 
@@ -1500,15 +1597,15 @@ ${head(`照合結果:${h(m.cust)} ${h(m.cust_name || '')}`, `${fmtDate(m.date_fr
         <td class="n">${fQty(x.qty)}</td><td class="n">${fWt(x.wt)}</td><td class="n">${fAmt(x.amt)}</td></tr>`).join('') || `<tr><td colspan="9" class="zero">${isR ? '受領' : '売上'}側に明細はありません</td></tr>`}</tbody>
       ${lines.length ? `<tfoot><tr><td colspan="6">計</td><td class="n">${fQty(tot[1])}</td><td class="n">${fWt(tot[2])}</td><td class="n">${fAmt(tot[0])}</td></tr></tfoot>` : ''}</table></div></section>`;
     return { nav: 'matches', title: '明細', html: `
-${head(`明細:${V.k1} ${h(r.k1)}`, r.k2 ? h(r.k2) : '', '', `<a href="${base}?view=${view}" class="back">← 照合結果(${V.label})に戻る</a>`)}
+${head(`明細:${V.k1} ${h(r.k1)}`, h(r.k2 || ''), '', `<a href="${base}?view=${view}" class="back">← 照合結果(${V.label})に戻る</a>`)}
 <div class="info"><div><div class="k">販売先</div><div class="v">${h(m.cust)} ${h(m.cust_name || '')}</div></div>
   <div><div class="k">判定</div><span class="b ${r.badge}">${h(r.judge_label)}</span></div>
-  <div><div class="k">差異(売上−受領)</div><div class="v">金額 ${dcell(fAmt, r.d[0])} / 数量 ${dcell(fQty, r.d[1])} / 重量 ${dcell(fWt, r.d[2])}</div></div></div>
+  <div><div class="k">差異(売上−受領)</div><div class="v">${RM.measures(view).map(x => `${x.label} ${dcell(FMT[x.key], r.d[x.idx])}`).join(' / ')}</div></div></div>
 <div style="display:flex;flex-direction:column;gap:16px">${tbl('売上明細(自社)', '#3B5CC4', d.sales, false, r.s)}${tbl('受領明細(得意先)', '#9A4A16', d.receipt, true, r.r)}</div>
 ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class="tblwrap"><table class="tbl">
-  <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th>判定</th></tr></thead>
+  <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th class="n">差異 金額</th><th>判定</th></tr></thead>
   <tbody>${d.products.map(p => `<tr class="${p.row_cls}"><td>${h(p.key[0])}</td><td>${h(p.name)}</td><td class="n">${p.s ? fAmt(p.s[0]) : '—'}</td><td class="n">${p.r ? fAmt(p.r[0]) : '—'}</td>
-    <td class="n">${dcell(fAmt, p.d[0])}</td><td class="n">${dcell(fQty, p.d[1])}</td><td class="n">${dcell(fWt, p.d[2])}</td><td><span class="b ${p.badge}">${h(p.judge_label)}</span></td></tr>`).join('')}</tbody></table></div></section>` : ''}
+    <td class="n">${dcell(fQty, p.d[1])}</td><td class="n">${dcell(fWt, p.d[2])}</td><td class="n">${dcell(fAmt, p.d[0])}</td><td><span class="b ${p.badge}">${h(p.judge_label)}</span></td></tr>`).join('')}</tbody></table></div></section>` : ''}
 <section class="card"><h2>確認状況</h2>
   <form data-form="detail-confirm" data-id="${id}" data-view="${view}" data-key="${h(key)}" style="display:flex;flex-direction:column;gap:10px">
     <label class="chk" style="font-size:14px"><input type="checkbox" name="checked" value="1"${r.checked ? ' checked' : ''}> 確認済みにする</label>
@@ -1537,7 +1634,7 @@ ${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class
 ${head('販売台帳', '受領データの相手先商品コードを自社商品コードに変換するためのマスタです')}
 <div class="grid2">
   <section class="card"><h2>取込(全件入れ替え)</h2>
-    <form data-form="ledger" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', '販売台帳のExcelファイル(.xlsx)をここにドラッグ&ドロップ、またはファイルを選択', '.xlsx')}
+    <form data-form="ledger" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', '販売台帳(.xlsx)', '.xlsx')}
       <div class="row"><span class="sub">取り込むと現在の台帳はすべて置き換わります。削除区分「9」の行は取り込みません。</span><div class="right"><button type="submit" class="btn btn-p">取り込む</button></div></div></form></section>
   <section class="card"><h2>現在の台帳</h2>${meta ? `<div class="kv">
     <div>ファイル名</div><div>${h(meta.file_name)}</div><div>取込日時</div><div>${dt(meta.imported_at)}</div>
@@ -1585,7 +1682,7 @@ ${head('受領レイアウト・得意先割当', '得意先ごとの受領デ�
   <details><summary class="btn btn-p" style="display:inline-flex;list-style:none">+ 新規(サンプルファイルから作成)</summary>
     <form data-form="layout-new" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;background:var(--bg);border-radius:6px;padding:14px 16px">
       <div class="filters">${fileFields({ file_type: 'excel', encoding: 'cp932', delimiter: ',' }, true)}</div>
-      ${dropBox('file', '得意先から受け取った受領データのサンプル(.xlsx / .csv)', '.xlsx,.csv,.txt')}
+      ${dropBox('file', '受領データのサンプル(.xlsx / .csv)', '.xlsx,.csv,.txt')}
       <div><button type="submit" class="btn btn-p">サンプルを読み込む</button></div></form></details>
   <p class="note">得意先に割り当てられているレイアウトは削除できません(先に割当を解除してください)。</p></section>
 <section class="card"><div class="row"><h2>得意先レイアウト割当</h2><span class="sub">ここに無い販売先は「標準」レイアウトで読み込みます</span></div>
@@ -1626,7 +1723,7 @@ ${head(`受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class=
   ${pv.length ? `<div class="tblwrap"><table class="tbl"><thead><tr>${usedRoles.map(r => `<th>${r[1]}</th>`).join('')}</tr></thead>
     <tbody>${pv.map(p => `<tr>${usedRoles.map(r => `<td>${h(p[r[0]] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">保存後の設定でプレビューします。</p>`
     : '<div class="sub">サンプルのデータ行がありません。下からサンプルファイルを読み込むとプレビューできます。</div>'}
-  <form data-form="layout-sample" data-id="${id}" class="row">${dropBox('file', '別のサンプルで読み直す(列の構成が変わった場合など)', '.xlsx,.csv,.txt').replace('class="drop"', 'class="drop" style="flex:1 1 360px"')}
+  <form data-form="layout-sample" data-id="${id}" class="row"><div style="flex:1 1 360px">${dropBox('file', '別のサンプルで読み直す(列の構成が変わった場合など)', '.xlsx,.csv,.txt')}</div>
     <button type="submit" class="btn">読み直す</button></form></section>` };
   }
 
@@ -1645,7 +1742,7 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
     <div><button type="button" class="btn btn-p" data-act="backup">バックアップファイルを保存</button></div>
     <p class="note">すべてのデータ(販売台帳・レイアウト・割当・照合・確認状況)を1つのファイルに保存します。ファイルには業務データが含まれるため、社内の決められた場所に保管してください。</p></section>
   <section class="card"><h2>復元(ファイルから読み込む)</h2>
-    <form data-form="restore" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', 'バックアップファイル(.json)をここにドラッグ&ドロップ、またはファイルを選択', '.json')}
+    <form data-form="restore" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', 'バックアップファイル(.json)', '.json')}
       <div><button type="submit" class="btn btn-danger">復元する</button></div></form>
     <p class="note">復元すると、現在のデータはすべてバックアップの内容に置き換わります。別のPCへの移行にも使えます。</p></section>
 </div>` };
@@ -1691,12 +1788,20 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
   }
 
   // ---------------------------------------------------------------- 操作
+  // エラーは画面上部に表示するだけにし、入力中の内容(選んだファイル等)は残す
+  function showError(msg) {
+    const v = $('#view');
+    v.querySelectorAll(':scope > .msg').forEach(e => e.remove());
+    const d = document.createElement('div');
+    d.className = 'msg msg-err'; d.setAttribute('role', 'alert'); d.textContent = msg;
+    v.prepend(d);
+    window.scrollTo(0, 0);
+  }
   async function guarded(fn) {
     try { await fn(); } catch (e) {
       busy(false);
-      console.error(e);
-      flash = { err: e instanceof RM.ReadError ? e.message : '処理できませんでした:' + e.message };
-      render();
+      if (!(e instanceof RM.ReadError)) console.error(e);
+      showError(e instanceof RM.ReadError ? e.message : '処理できませんでした:' + e.message);
     }
   }
   const layoutSettings = fd => ({ name: String(fd.get('name') || ''), file_type: String(fd.get('file_type')), encoding: String(fd.get('encoding')),
@@ -1714,7 +1819,7 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
       const s = await readFile(f.querySelector('input[name=sales]')), r = await readFile(f.querySelector('input[name=receipt]'));
       if (!s || !r) throw new RM.ReadError('売上データと受領データの両方を選択してください。');
       busy(true, 'ファイルを読み込んでいます…');
-      draft = await RM.stage({ cust: parent ? parent.cust : String(fd.get('cust')), dateFrom: df, dateTo: dtt, salesName: s.name, salesBuf: s.buf,
+      draft = await RM.stage({ dateFrom: df, dateTo: dtt, salesName: s.name, salesBuf: s.buf,
         receiptName: r.name, receiptBuf: r.buf, parentId, onProgress: t => busy(true, t) });
       busy(false);
       go('/review');
@@ -1831,6 +1936,8 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
       if (fn) guarded(() => fn(f, new FormData(f)));
     });
     document.addEventListener('click', e => {
+      const clr = e.target.closest('.drop-clear');
+      if (clr) { const inp = clr.closest('.dropwrap').querySelector('input[type=file]'); inp.value = ''; setDropState(inp); return; }
       const el = e.target.closest('[data-act]');
       if (el && ACTS[el.dataset.act]) { e.preventDefault(); guarded(() => ACTS[el.dataset.act](el)); }
     });
@@ -1839,7 +1946,7 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
       if (t.matches('.js-check') || t.matches('.js-comment')) { const tr = t.closest('tr.js-conf'); if (tr) saveRow(tr); }
       if (t.matches('.js-autosubmit')) t.form.requestSubmit();
       if (t.matches('select[name=file_type]')) syncFileType();
-      if (t.matches('.drop input[type=file]')) { const n = t.closest('.drop').querySelector('.fname'); if (n) n.textContent = t.files.length ? '選択中: ' + t.files[0].name : ''; }
+      if (t.matches('.drop input[type=file]')) setDropState(t);
     });
     document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.js-comment')) { e.preventDefault(); e.target.blur(); } });
     ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest && e.target.closest('.drop'); if (d) { e.preventDefault(); d.classList.add('over'); } }));

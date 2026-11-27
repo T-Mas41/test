@@ -80,7 +80,7 @@ def test_full_flow(client):
     assert slip["7227302"]["judge"] == "ok"           # 先頭ゼロを除いて一致、日付ずれでも伝票では一致
     assert "売上 11/09 / 受領 11/08" in slip["7227302"]["k2"]
     assert slip["7227290"]["judge"] == "sonly" and slip["7227295"]["judge"] == "ronly"
-    assert slip["7227295"]["k2"] == "11/07 ・ 20005561"
+    assert slip["7227295"]["k2"] == "11/07 ・ 20005561 松本店"
     assert slip["7227400"]["judge"] == "ok"           # マイナス(▲表記)も一致
     assert slip["7218832"]["judge"] == "ok"           # 金額は一致(商品は変換不可)
 

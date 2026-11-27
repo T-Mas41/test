@@ -24,7 +24,7 @@ async function test(name, fn) {
 }
 
 async function setupMatch(receiptName = 'デモ_受領データ_標準.xlsx', parentId = null) {
-  const d = await RM.stage({ cust: '20005525', dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's.xlsx', salesBuf: rd('デモ_売上データ.xlsx'),
+  const d = await RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's.xlsx', salesBuf: rd('デモ_売上データ.xlsx'),
     receiptName, receiptBuf: rd(receiptName), parentId });
   return [await RM.confirm(d), d];
 }
@@ -44,7 +44,8 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.equal(meta.loaded_rows, 5); assert.equal(meta.deleted_rows, 1);
   const [id, draft] = await setupMatch();
   assert.equal(draft.stats.receipt.conv_none, 1); assert.equal(draft.stats.receipt.conv_multi, 1);
-  assert.equal(draft.stats.sales.other_cust, 1); assert.equal(draft.stats.sales.out_of_period, 1);
+  assert.equal(draft.cust, '20005525'); assert.equal(draft.cust_name, 'H');
+  assert.equal(draft.stats.sales.out_of_period, 1);
   const t = await RM.totals(id);
   assert.equal(t.s_rows, 7); assert.equal(t.r_rows, 6);
   assert.equal(t.s[0], 12720 + 2660 + 40000 + 12400 + 5400 + 3020 - 1338);
@@ -55,15 +56,22 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.deepEqual(slip['7227188'].d, [-6742, -2000, -320]);
   assert.equal(slip['7227302'].judge, 'ok'); assert.ok(slip['7227302'].k2.includes('売上 11/09 / 受領 11/08'));
   assert.equal(slip['7227290'].judge, 'sonly'); assert.equal(slip['7227295'].judge, 'ronly');
-  assert.equal(slip['7227295'].k2, '11/07 ・ 20005561');
+  assert.equal(slip['7227295'].k2, '11/07 ・ 20005561 松本店');
   assert.equal(slip['7227400'].judge, 'ok'); assert.equal(slip['7218832'].judge, 'ok');
   const day = Object.fromEntries((await RM.aggregate(id, 'day')).map(r => [r.key[0], r]));
   assert.equal(day['2026-11-08'].judge, 'ronly'); assert.equal(day['2026-11-09'].judge, 'sonly');
   const item = Object.fromEntries((await RM.aggregate(id, 'item')).map(r => [r.key_str, r]));
   assert.equal(item['2026-11-01|[未変換]4958857043977'].judge, 'ronly');
-  assert.equal(item['2026-11-06|1601001000500293'].judge, 'diff');
+  assert.equal(item['2026-11-01|[未変換]4958857043977'].cells[2], 'FD ﾁｷﾝﾊﾆﾏｽﾄﾙﾃｨｰﾔ');  // 未変換は受領の品名
+  assert.equal(item['2026-11-01|000510012'].cells[2], 'チキンハニーマスタードトルティーヤ');
+  assert.equal(item['2026-11-06|000283223'].judge, 'diff');                     // 識別コード9桁・複数候補は先頭
+  assert.equal(item['2026-11-06|000283223'].judge_label, '差異あり(数量・重量・金額)');
   const store = Object.fromEntries((await RM.aggregate(id, 'store')).map(r => [r.key_str, r]));
   assert.equal(store['2026-11-04|20005552'].judge, 'diff');
+  assert.deepEqual(store['2026-11-04|20005552'].cells, ['2026/11/04', '20005552', '長野店']);
+  // 日別・日別店別・伝票別は金額だけで判定
+  assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 0 }, false).judge, 'ok');
+  assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 0 }, true).judge, 'diff');
   assert.deepEqual(new Set((await RM.warnings(id)).map(w => w.conv_status)), new Set(['none', 'multi']));
   const cnt = await RM.counts(id);
   assert.deepEqual(cnt, { day: 4, store: 4, slip: 4, item: 6, warn: 2 });
@@ -79,8 +87,14 @@ await test('full flow (same expectations as Python version)', async () => {
   const blob = await RM.buildReport(id);
   fs.writeFileSync(path.join(process.env.REPORT_OUT || '/tmp', 'report_test.xlsx'), Buffer.from(await blob.arrayBuffer()));
   const back = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: '伝票別' });
+  assert.deepEqual(back[0].slice(1), ['相手先注文番号', '取引日付', '店舗', '売上 金額', '受領 金額', '差異 金額', '判定', '確認済', 'コメント', '確認更新日時']);
   const row = back.find(r => r[1] === '7227290');
-  assert.equal(row[14], '受領漏れ連絡済');
+  assert.equal(row[9], '受領漏れ連絡済');
+  const itemSheet = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: '日別商品別' });
+  assert.deepEqual(itemSheet[0].slice(4, 13), ['売上 数量', '売上 重量', '売上 金額', '受領 数量', '受領 重量', '受領 金額', '差異 数量', '差異 重量', '差異 金額']);
+  const summary = await RM.readXlsx(new Uint8Array(await blob.arrayBuffer()), { sheetName: 'サマリ' });
+  const ci = summary.findIndex(r => r[1] === '売上額(自社)');
+  assert.deepEqual(summary[ci + 1].slice(1, 4), [74862, 78944, -4082]);
 
   // 再取込: 同じ照合を置き換え、確認状況を引き継ぐ
   const [id2] = await setupMatch('デモ_受領データ_標準.xlsx', id);
@@ -108,14 +122,19 @@ await test('BMS CSV layout via assignment', async () => {
   assert.match(await RM.deleteLayout(bms.id), /削除できません/);
 });
 
+await test('multiple customers in sales data is an error', async () => {
+  await assert.rejects(RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's', salesBuf: rd('デモ_売上データ_複数販売先.xlsx'),
+    receiptName: 'r', receiptBuf: rd('デモ_受領データ_標準.xlsx') }), /複数の販売先コード.*20005525 H:8行.*20009999 H:1行/);
+});
+
 await test('sales layout check and receipt errors', async () => {
-  await assert.rejects(RM.stage({ cust: '20005525', dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 'x', salesBuf: rd('デモ_受領データ_標準.xlsx'),
+  await assert.rejects(RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 'x', salesBuf: rd('デモ_受領データ_標準.xlsx'),
     receiptName: 'r', receiptBuf: rd('デモ_受領データ_標準.xlsx') }), /売上データのレイアウトが想定と異なります/);
   // 受領に不正な日付の行と合計行を足したファイル
   const blob = await RM.writeXlsx([{ name: 'S', rows: [RM.STANDARD_RECEIPT_HEADERS.map(v => ({ v })),
     Array.from({ length: 45 }, (_, i) => ({ v: { 1: '2026/13/45', 4: '7000001', 13: '2721327000000', 7: 100 }[i] ?? null })),
     Array.from({ length: 45 }, (_, i) => ({ v: i === 7 ? 999999 : null }))] }]);
-  const d = await RM.stage({ cust: '20005525', dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's', salesBuf: rd('デモ_売上データ.xlsx'),
+  const d = await RM.stage({ dateFrom: '2026-11-01', dateTo: '2026-11-10', salesName: 's', salesBuf: rd('デモ_売上データ.xlsx'),
     receiptName: 'r', receiptBuf: new Uint8Array(await blob.arrayBuffer()) });
   assert.equal(d.stats.receipt.error, 1); assert.match(d.errors[0].msg, /日付として読めません/);
   assert.equal(d.stats.receipt.skipped_blank, 1);
