@@ -429,13 +429,13 @@ ${head(`受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class=
 <section class="card"><h2>1. ファイル形式</h2><div class="filters">${fileFields(l, false)}</div>
   <div class="sub">サンプル:${h(l.sample_file || '(初期登録のため見出しのみ)')}(${l.columns.length}列)</div></section>
 <section class="card"><div class="row"><h2>2. 項目の役割</h2><div class="right"><a class="btn btn-s" href="#/layout/${id}${all ? '?all=0' : '?all=1'}">${all ? '役割を設定した列だけ表示' : 'すべての列を表示'}</a></div></div>
-  <div class="row" style="gap:8px;font-size:13px"><span class="sub">必須の役割:</span>${RM.ROLES.filter(r => r[2]).map(([k, lb]) => `<span class="chip ${used.includes(k) ? 'chip-ok' : 'chip-ng'}">${used.includes(k) ? '✓' : '未設定'} ${lb}</span>`).join('')}</div>
+  <div class="row" style="gap:8px;font-size:13px"><span class="sub">必須の役割:</span>${RM.ROLES.filter(r => r[2]).map(([k, lb]) => `<span class="chip ${used.includes(k) ? 'chip-ok' : 'chip-ng'}" data-req="${k}" data-label="${lb}">${used.includes(k) ? '✓' : '未設定'} ${lb}</span>`).join('')}</div>
   ${missing.length ? `<div class="msg msg-warn">下の表で、各列の「役割」を選んで<strong>保存</strong>してください。まだ設定されていない必須の役割:<strong>${missing.map(r => r[1]).join('・')}</strong>(見出し名から推測できた列は、あらかじめ設定してあります)</div>` : ''}
   ${problems.map(p => `<div class="msg msg-err">${h(p)}</div>`).join('')}
   <div class="tblwrap"><table class="tbl"><thead><tr><th class="n">列</th><th>見出し名</th><th>サンプル値(1行目)</th><th>役割</th><th>日付書式</th></tr></thead><tbody>
   ${l.columns.filter(c => all || c.role).map(c => `<tr class="${c.role ? 'used' : ''}"><td class="n">${c.col_no}</td><td>${h(c.header)}</td><td>${h((l.sample_rows[0] || [])[c.col_no - 1] || '')}</td>
     <td><select class="fld fld-s" name="role_${c.col_no}" aria-label="${h(c.header)} の役割" style="width:190px"><option value="">未使用</option>${RM.ROLES.map(([k, lb, req]) => opt(k, lb + (req ? '(必須)' : ''), c.role === k)).join('')}</select></td>
-    <td>${c.role === 'tdate' ? `<select class="fld fld-s" name="fmt_${c.col_no}" aria-label="日付書式">${Object.entries(RM.DATE_FORMATS).map(([k, v]) => opt(k, v, c.date_format === k)).join('')}</select>` : ''}</td></tr>`).join('')}
+    <td><select class="fld fld-s js-fmt" name="fmt_${c.col_no}" aria-label="日付書式"${c.role === 'tdate' ? '' : ' hidden'}>${Object.entries(RM.DATE_FORMATS).map(([k, v]) => opt(k, v, c.date_format === k)).join('')}</select></td></tr>`).join('')}
   </tbody></table></div>
   <p class="note">${all ? '' : '役割を設定していない列は非表示です。別の列に役割を付けるには「すべての列を表示」を押してください。'}販売先コードの役割がない場合は、照合作成時に指定した販売先として扱います。</p></section>
 <div class="row"><div class="right"><a href="#/layouts" class="btn">一覧へ戻る</a><button type="submit" class="btn btn-p">保存</button></div></div>
@@ -497,6 +497,19 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
     $('#view').innerHTML = (f && f.msg ? `<div class="msg msg-ok" role="status">${h(f.msg)}</div>` : '') + (f && f.err ? `<div class="msg msg-err" role="alert">${h(f.err)}</div>` : '') + res.html;
     window.scrollTo(0, 0);
     syncFileType();
+  }
+
+  // 受領レイアウト編集: 役割を選んだ時点で、日付書式の欄と必須の役割の表示を更新する(保存前でも)
+  function syncRoles(sel) {
+    const tr = sel.closest('tr'), fmt = tr && tr.querySelector('.js-fmt');
+    if (fmt) fmt.hidden = sel.value !== 'tdate';
+    if (tr) tr.classList.toggle('used', !!sel.value);
+    const form = sel.form, used = [...form.querySelectorAll('select[name^="role_"]')].map(s => s.value).filter(Boolean);
+    document.querySelectorAll('.chip[data-req]').forEach(ch => {
+      const ok = used.includes(ch.dataset.req);
+      ch.className = 'chip ' + (ok ? 'chip-ok' : 'chip-ng');
+      ch.textContent = (ok ? '✓ ' : '未設定 ') + ch.dataset.label;
+    });
   }
 
   function syncFileType() {
@@ -668,6 +681,7 @@ ${head('バックアップ・復元', 'データはこのPCのブラウザ内に
       if (t.matches('.js-check') || t.matches('.js-comment')) { const tr = t.closest('tr.js-conf'); if (tr) saveRow(tr); }
       if (t.matches('.js-autosubmit')) t.form.requestSubmit();
       if (t.matches('select[name=file_type]')) syncFileType();
+      if (t.matches('select[name^="role_"]')) syncRoles(t);
       if (t.matches('.drop input[type=file]')) setDropState(t);
     });
     document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.js-comment')) { e.preventDefault(); e.target.blur(); } });

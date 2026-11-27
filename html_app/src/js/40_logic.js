@@ -164,8 +164,16 @@
   function suggestRoles(header) {
     const used = new Set(), map = {};
     header.forEach((h, i) => { const r = SUGGEST[h]; if (r && !used.has(r)) { map[i + 1] = r; used.add(r); } });
+    // 取引日付は、受領データで使われやすい日付を優先(発注日は最後)
+    if (!used.has('tdate')) {
+      const pri = ['検収', '計上', '納品', '取引', '受領', '出荷', '伝票', ''];
+      const cands = header.map((h, j) => [h, j]).filter(([h, j]) => h && !map[j + 1] && /(日付|日)$|年月日/.test(h) && !/曜日/.test(h));
+      const score = h => { const k = pri.findIndex(p => p && h.includes(p)); return k >= 0 ? k : (/発注/.test(h) ? 99 : pri.length); };
+      cands.sort((a, b) => score(a[0]) - score(b[0]) || a[1] - b[1]);
+      if (cands.length) { map[cands[0][1] + 1] = 'tdate'; used.add('tdate'); }
+    }
     for (const [role, re] of SUGGEST_RE) {
-      if (used.has(role)) continue;
+      if (used.has(role) || role === 'tdate') continue;
       const i = header.findIndex((h, j) => !map[j + 1] && h && re.test(h));
       if (i >= 0) { map[i + 1] = role; used.add(role); }
     }
