@@ -1,0 +1,1822 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 外部への通信・外部ファイルの読込をすべて禁止(このファイルの中だけで動作) -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>受領照合</title>
+<style>
+/* 受領照合 A案デザイン(外部フォント・CDN不使用) */
+:root{
+  --bg:#F4F6F8;--surface:#FFFFFF;--text:#1F2933;--muted:#5B6673;--line:#D9DEE4;--line2:#E6E9EE;
+  --navy:#17324D;--navy2:#24496E;--primary:#1E5AA8;--primary-d:#17457F;--primary-l:#E3EEFB;
+  --ok-bg:#E3F3E8;--ok:#1B6236;--diff-bg:#FFF1C2;--diff:#6B4A00;--s-bg:#DCEAFB;--s:#1D4C88;--r-bg:#FBE1E1;--r:#9A2222;
+  --neg:#B42318;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Meiryo','Yu Gothic UI','Hiragino Sans','Noto Sans JP',sans-serif;font-size:14px}
+a{color:var(--primary)}a:hover{color:var(--primary-d)}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:12px 24px;background:var(--navy);color:#fff}
+.top .name{font-size:17px;font-weight:700;letter-spacing:.02em;color:#fff;text-decoration:none}
+.top .badge{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--navy2);color:#DDE8F5}
+.top .where{margin-left:auto;font-size:12px;color:#C9D6E4}
+.body{display:flex;flex-wrap:wrap;flex:1}
+.nav{flex:1 1 200px;max-width:220px;background:var(--surface);border-right:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav .grp{font-size:12px;color:var(--muted);padding:14px 14px 4px}.nav .grp:first-child{padding-top:4px}
+.nav a{display:block;padding:10px 14px;border-radius:6px;text-decoration:none;color:var(--text)}
+.nav a.on{background:var(--primary-l);color:var(--primary-d);font-weight:700}
+.main{flex:999 1 560px;min-width:0;padding:24px 28px;display:flex;flex-direction:column;gap:18px}
+h1{margin:0;font-size:22px}h2{margin:0;font-size:15px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.row .right{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.sub{font-size:12px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:18px;font-weight:700;margin-top:6px}.stat .d{font-size:13px;color:var(--muted);margin-top:2px}
+.warnv{color:#8A5A00}
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 16px;border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;border:1px solid #C5CCD5;background:#fff;color:var(--text);font-family:inherit;white-space:nowrap}
+.btn:hover{background:#F4F6F8;color:var(--text)}
+.btn-s{height:30px;padding:0 10px;font-size:13px}
+.btn-p{background:var(--primary);border-color:var(--primary);color:#fff}.btn-p:hover{background:var(--primary-d);color:#fff}
+.btn-danger{color:var(--neg)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+form.inline{display:inline}
+.fld{height:34px;font-size:14px;font-family:inherit;border:1px solid #C5CCD5;border-radius:6px;padding:0 10px;background:#fff;color:var(--text)}
+.fld-s{height:30px;font-size:13px;padding:0 8px}
+.lbl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px}
+.filters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
+.tblwrap{overflow-x:auto;border:1px solid var(--line2);border-radius:6px}
+.tbl{border-collapse:collapse;width:100%;font-size:13px}
+.tbl.compact{font-size:12.5px}.tbl.compact td,.tbl.compact th{padding:7px 6px}.tbl.compact td.cm{white-space:normal;width:100%;min-width:130px}.tbl.compact td.cm .cin{width:100%;min-width:120px}
+.tbl th{background:#EEF1F5;color:#3A4552;font-weight:600;text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0}
+.tbl th.gs{background:#E3EEFB;color:var(--primary-d)}.tbl th.gr{background:#F6E9E1;color:#7A3A12}.tbl th.gd{background:#EDE7F6;color:#4A2F86}
+.tbl td{padding:7px 8px;border-bottom:1px solid var(--line2);white-space:nowrap}
+.tbl .n{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tfoot td{font-weight:700;background:#F7F8FA;border-top:1px solid var(--line)}
+.tbl tr.r-diff td{background:#FFFBEA}.tbl tr.r-s td{background:#F2F7FE}.tbl tr.r-r td{background:#FEF4F4}
+.tbl tr.used td{background:#F2F7FE}
+.tbl .wrap{white-space:normal;min-width:200px}
+.neg{color:var(--neg);font-weight:600}.pos{font-weight:600}.zero{color:var(--muted)}
+.b{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap}
+.b-ok{background:var(--ok-bg);color:var(--ok)}.b-diff{background:var(--diff-bg);color:var(--diff)}
+.b-s{background:var(--s-bg);color:var(--s)}.b-r{background:var(--r-bg);color:var(--r)}.b-g{background:#EEF1F5;color:#46515E}
+.b-std{background:var(--s-bg);color:var(--s)}
+.big{font-size:16px;padding:4px 14px}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;padding:10px 12px 0;border-bottom:1px solid var(--line)}
+.tab{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 16px;font-size:14px;text-decoration:none;color:#3A4552;border:1px solid transparent;border-radius:6px 6px 0 0;margin-bottom:-1px}
+.tab.on{background:#fff;border-color:var(--line);border-bottom:2px solid var(--primary);color:var(--primary-d);font-weight:700}
+.cnt{display:inline-block;min-width:20px;padding:0 6px;border-radius:9px;font-size:12px;background:#EEF1F5;color:#46515E;text-align:center}
+.cnt.has{background:var(--diff-bg);color:var(--diff)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column}
+.panel .bar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;padding:12px 16px}
+.panel .inner{overflow-x:auto;padding:0 16px 16px}
+.legend{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.cin{height:28px;width:170px;font-size:13px;font-family:inherit;border:1px solid #C5CCD5;border-radius:4px;padding:0 8px}
+.cin.saved{border-color:#7BB38F}.cin.err{border-color:var(--neg)}
+.msg{padding:10px 14px;border-radius:6px;font-size:13px}
+.msg-ok{background:#F2FAF4;border:1px solid #CDE5D4;color:var(--ok)}
+.msg-err{background:#FEF4F4;border:1px solid #F2C6C6;color:var(--r)}
+.msg-warn{background:#FFFAEB;border:1px solid #F0DB9A;color:var(--diff)}
+.step{display:inline-flex;width:26px;height:26px;border-radius:13px;background:var(--primary);color:#fff;font-size:13px;align-items:center;justify-content:center;margin-right:8px}
+.drop{border:2px dashed #B7C2CF;border-radius:8px;padding:18px;text-align:center;color:var(--muted);font-size:13px;display:flex;flex-direction:column;gap:8px;align-items:center}
+.drop.over{border-color:var(--primary);background:var(--primary-l)}
+.drop input[type=file]{max-width:100%}
+.kv{display:grid;grid-template-columns:max-content 1fr;gap:6px 16px;font-size:13px}.kv>:nth-child(odd){color:var(--muted)}
+.info{display:flex;flex-wrap:wrap;gap:24px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 20px;font-size:13px}
+.info .k{color:var(--muted);font-size:12px}.info .v{font-weight:700}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(460px,1fr));gap:16px}
+.pager{display:flex;gap:8px;align-items:center;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.chip-ok{background:var(--ok-bg);color:var(--ok)}.chip-ng{background:var(--r-bg);color:var(--r)}
+textarea.fld{height:auto;padding:8px 10px;max-width:720px;width:100%}
+.note{margin:0;font-size:12px;color:var(--muted)}
+@media (max-width:700px){.nav{max-width:none}.main{padding:16px}}
+/* HTML版の追加 */
+.nav a{cursor:pointer}
+.busy{position:fixed;inset:0;background:rgba(23,50,77,.35);display:flex;align-items:center;justify-content:center;z-index:100}
+.busy[hidden]{display:none}
+.busy-box{background:#fff;border-radius:10px;padding:24px 32px;display:flex;align-items:center;gap:16px;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.2);max-width:90vw}
+.spinner{width:28px;height:28px;border:3px solid #D9DEE4;border-top-color:var(--primary);border-radius:50%;animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation:none}}
+details>summary::-webkit-details-marker{display:none}
+
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <a class="name" href="#/">受領照合</a>
+  <span class="badge">ローカル専用 ・ 外部通信なし</span>
+  <span class="where">データ保存先:このPCのブラウザ内 ・ 版 2026.11.27</span>
+</header>
+<div class="body">
+<nav class="nav" aria-label="メインメニュー">
+  <div class="grp">照合業務</div>
+  <a href="#/" data-nav="list">照合一覧</a>
+  <a href="#/new" data-nav="new">新規照合</a>
+  <div class="grp">マスタ</div>
+  <a href="#/ledger" data-nav="ledger">販売台帳</a>
+  <a href="#/layouts" data-nav="layouts">受領レイアウト・得意先割当</a>
+  <div class="grp">データ管理</div>
+  <a href="#/backup" data-nav="backup">バックアップ・復元</a>
+</nav>
+<main class="main" id="view"><div class="sub">読み込んでいます…</div></main>
+</div>
+</div>
+<div id="busy" class="busy" hidden><div class="busy-box"><div class="spinner" aria-hidden="true"></div><div id="busy-text">処理しています…</div></div></div>
+<noscript><p>JavaScript を有効にしてください。</p></noscript>
+<script>
+/* 列見出し定義(サンプルファイルから抽出。業務データは含まない) */
+(function (RM) {
+  RM.SALES_HEADERS = ["RPT用CLIENTID", "伝票管理番号", "行番号", "ロット明細行番号", "部門コード", "部門略称", "販売先コード", "販売先略称", "商品コード", "商品略称", "メーカーコード", "メーカー名称", "販売先商品識別ｺｰﾄﾞ", "JANコード", "属性ｺｰﾄﾞA02(ブランド/銘柄)", "ブランド/銘柄略称", "識別子", "売上伝票番号(連番)", "売上伝票番号(枝番)", "識別子(売成約)", "売成約番号", "識別子(受注)", "受注SEQNO", "出荷日付", "売上伝票日付", "仮単価区分", "仮単価区分名称", "単価計算区分", "単価計算区分名称", "単位数量", "荷姿管理単位名称", "重量(kg)", "売上数量", "販売単位名称", "相手先注文番号", "販売単価", "売上金額(即引前)", "即引リベート金額(売上)", "社員コード", "社員氏名", "諸掛金額", "ロット管理番号", "連携用ロット№", "ロット払出数量", "ロット払出重量", "取引区分コード", "取引区分名称", "伝票種別", "伝票名称", "商品識別コード", "ｻﾝﾌﾟﾙ出荷区分", "ｻﾝﾌﾟﾙ出荷区分名称", "収益区分", "収益区分名称", "入数(荷姿)", "荷姿管理単位名称", "ロット単価", "即引後売上金額", "評価単価", "粗利①(額)", "粗利率", "売上利益", "売上利益率", "倉庫コード", "倉庫名称", "売上伝票状態区分", "売上伝票状態区分名称", "受注時仮単価区分", "受注時仮単価区分名称", "個体識別番号", "牛ロット番号", "オンライン区分", "オンライン区分名称", "定貫区分", "定貫区分名称", "出荷指示単位数量", "出荷指示数", "出荷指示重量", "出荷先コード", "出荷先略称", "店舗コード", "店舗略称", "発注元コード", "発注元略称", "合わせ数名称", "諸掛金額", "諸掛金額", "諸掛金額", "諸掛金額", "諸掛金額", "属性ｺｰﾄﾞC01(採捕方法)", "属性ｺｰﾄﾞC01(採捕方法)名称", "属性ｺｰﾄﾞC02(水域名)", "属性ｺｰﾄﾞC02(水域名)名称", "属性ｺｰﾄﾞC03(水揚港)", "属性ｺｰﾄﾞC03(水揚港)名称", "属性ｺｰﾄﾞC04(加工地/ﾊﾟｯｶｰ/船名)", "属性ｺｰﾄﾞC04(加工地/ﾊﾟｯｶｰ/船名)名称", "属性ｺｰﾄﾞC05(包装形態)", "属性ｺｰﾄﾞC05(包装形態)名称", "大分類コード", "大分類略称", "中分類コード", "中分類略称", "小分類コード", "小分類略称", "細分類コード", "細分類略称", "標準品名コード", "標準品名略称", "属性ｺｰﾄﾞA01(国産/輸入(詳細))", "国産/輸入(詳細)略称", "属性ｺｰﾄﾞA01代替区分(国産/輸入(詳細))", "ｺｰﾄﾞA01代替区分(国産/輸入(詳細)))名称", "属性ｺｰﾄﾞA02代替区分(ブランド/銘柄)", "属性ｺｰﾄﾞA02代替区分(ブランド/銘柄)名称", "属性ｺｰﾄﾞA03(態様)", "態様略称", "属性ｺｰﾄﾞA04(形状)", "形状略称", "属性ｺｰﾄﾞA05(部位)", "部位略称", "属性ｺｰﾄﾞA06(加工方法)", "加工方法略称", "属性ｺｰﾄﾞA07(等級(飼養)", "等級(飼養)略称", "属性ｺｰﾄﾞA08(規格/サイズ)", "規格/サイズ略称", "属性ｺｰﾄﾞB01(企画)", "企画略称", "ITFコード", "規格品区分", "規格品区分略称", "品目コード", "(所属)企業コード", "取引先略称", "取引日付", "在庫評価計算区分ｺｰﾄﾞ", "社内売買部門コード", "在庫評価計算方法", "在庫評価計算方法名称", "最新粗利用原価", "本体金額", "最新粗利額", "最新粗利率", "部門コード", "部門略称", "社員コード", "社員氏名", "開始出荷日", "終了出荷日", "開始売上伝票日付", "終了売上伝票日付", "販売先コード", "販売先略称", "倉庫コード", "倉庫名称", "メーカーコード", "メーカー名称", "属性ｺｰﾄﾞA02(ブランド/銘柄)", "ブランド/銘柄略称", "商品識別コード", "JANコード", "商品コード", "商品略称", "伝票種別", "取引区分名称", "開始・取引区分コード", "開始・取引区分名称", "終了・取引区分コード", "終了・取引区分名称", "担当業務コード", "担当業務コ名称", "定特区分", "定特区分名称", "仮単価区分", "仮単価区分名称", "売成約番号(連番)", "ロット別出力", "ロット別出力名称", "個体識別番号管理区分", "個体識別番号管理区分名称", "関連直送売上出力区分", "関連直送売上出力区分名称", "売上伝票№状態", "売上伝票№状態名称", "タイムスタンプ(時間)", "タイムスタンプ(日付)"];
+  RM.STANDARD_RECEIPT_HEADERS = ["RPT用CLIENTID", "取引日付", "店舗コード", "店舗略称", "相手先注文番号", "受領数量", "受領単価", "受領金額", "照合実行区分名称", "データ取込区分名称", "販売先コード", "販売先略称", "取引明細番号(発注・返品)", "相手先商品コード", "相手先商品名カナ", "販売先コード", "販売先略称", "実行担当コード", "実行担当名", "受領入数", "受領数量(総バラ)", "受領重量", "部署コード", "EDI)接続先識別コード", "EDI)取引先コード", "伝票管理番号", "部署コード", "部署略称", "実行担当コード", "実行担当氏名", "販売先コード", "販売先略称", "日付条件", "日付条件名称", "開始取引日付", "終了取引日付", "タイムスタンプ(開始日付)", "タイムスタンプ(終了日付)", "照合実行区分", "照合実行区分名称", "データ取込区分", "データ取込区分名称", "タイムスタンプ(日付)", "タイムスタンプ(時間)", "本伝票番号"];
+  RM.LEDGER_HEADERS = ["削除区分", "販売台帳番号(内訳)年度", "販売台帳番号(内訳)連番", "台帳検索キー", "登録区分", "登録区分名称", "仕入台帳番号(内訳)年度", "仕入台帳番号(内訳)連番", "台帳種別区分", "台帳種別名称", "EDI対象区分", "EDI対象区分名称", "(台帳)適用開始日", "(台帳)適用終了日", "対象成約番号", "(主管)部門コード", "主管部門略称", "(伝票計上)部門ｺｰﾄﾞ", "伝票計上部門略称", "大分類コード", "大分類略称", "中分類コード", "中分類略称", "小分類コード", "小分類略称", "細分類コード", "細分類略称", "標準品名コード", "標準品名略称", "代表属性番号", "属性ｺｰﾄﾞA01(国産/輸入(詳細))", "属性ｺｰﾄﾞA01(国産/輸入(詳細))略称", "属性ｺｰﾄﾞA01代替区分(国産/輸入(詳細))", "属性ｺｰﾄﾞA01代替区分(国産/輸入(詳細))名称", "属性ｺｰﾄﾞA02(ブランド/銘柄)", "属性ｺｰﾄﾞA02(ブランド/銘柄)略称", "属性ｺｰﾄﾞA02代替区分(ブランド/銘柄)", "属性ｺｰﾄﾞA02代替区分(ブランド/銘柄)名称", "属性ｺｰﾄﾞA03(態様)", "属性ｺｰﾄﾞA03(態様)略称", "属性ｺｰﾄﾞA04(形状)", "属性ｺｰﾄﾞA04(形状)略称", "属性ｺｰﾄﾞA05(部位)", "属性ｺｰﾄﾞA05(部位)略称", "属性ｺｰﾄﾞA06(加工方法)", "属性ｺｰﾄﾞA06(加工方法)略称", "属性ｺｰﾄﾞA07(等級(飼養)", "属性ｺｰﾄﾞA07(等級(飼養)略称", "属性ｺｰﾄﾞA08(規格/サイズ)", "属性ｺｰﾄﾞA08(規格/サイズ)略称", "属性ｺｰﾄﾞB01(企画)", "属性ｺｰﾄﾞB01(企画)略称", "メーカーコード", "メーカー名称", "品目コード", "品目略称", "商品識別コード", "JANコード", "商品コード", "商品略称", "採捕方法コード", "採捕方法略称", "水域名コード", "水域名略称", "水揚港コード", "水揚港略称", "加工地/ﾊﾟｯｶｰ/船名コード", "加工地/ﾊﾟｯｶｰ/船名略称", "包装形態コード", "包装形態略称", "台帳商品名", "販売先商品識別ｺｰﾄﾞ", "販売先商品識別ｺｰﾄﾞ2", "PB区分", "PB区分名称", "自社パック区分", "自社パック区分名称", "販売先パック区分", "販売先パック区分名称", "発注元区分", "発注元区分名称", "単価登録単位区分", "単価登録単位区分名称", "EDI単位換算区分", "EDI単位換算区分名称", "EDI単位換算値", "商品別税グループコード", "品目別課税グループ名称", "荷姿管理単位ｺｰﾄﾞ", "荷姿管理単位名称", "発注形態区分", "発注形態区分名称", "入荷ﾘｰﾄﾞﾀｲﾑ(日)", "単価計算区分", "単価計算区分名称", "賞味･消費期限区分", "賞味･消費期限区分名称", "賞味･消費期限(出荷)有効期間", "賞味･消費期限(出荷)期間区分", "販売期間 期限期間区分名称", "スペック", "最低受注数", "追加受注数", "外箱形態", "ﾛｯﾄ逆転禁止区分", "ﾛｯﾄ逆転禁止区分名称", "物流メモ", "販売先関連ｺｰﾄﾞ(内訳)年度", "販売先関連ｺｰﾄﾞ(内訳)連番", "販売先関連名称", "販売先コード", "販売先略称", "店舗コード", "店舗略称", "台帳担当者コード", "台帳担当者氏名", "EDI基盤連携区分", "EDI基盤連携区分名称", "納品予定曜日1(月曜)", "納品予定曜日2(火曜)", "納品予定曜日3(水曜)", "納品予定曜日4(木曜)", "納品予定曜日5(金曜)", "納品予定曜日6(土曜)", "納品予定曜日7(日曜)", "出荷ﾘｰﾄﾞﾀｲﾑ(日)", "配送方法区分", "配送方法区分名称", "物流(販売)区分", "物流(販売)区分名称", "相手先コード", "出荷明細書発行区分", "出荷明細書発行区分名称", "相手先商品分類コード(1階層目)", "相手先商品分類名称(1階層目)", "相手先商品分類コード(2階層目)", "相手先商品分類名称(2階層目)", "相手先商品分類コード(3階層目)", "相手先商品分類名称(3階層目)", "相手先商品分類コード(4階層目)", "相手先商品分類名称(4階層目)", "相手先商品分類コード(5階層目)", "相手先商品分類名称(5階層目)", "運賃単価コード", "運賃単価名称", "運賃支払区分", "運賃支払区分名称", "運賃単価単位区分", "運賃単価単位区分名称", "倉庫コード", "倉庫名称", "出庫手数料単位区分", "出庫手数料単位区分名称", "保管単価単位区分", "保管単価単位区分名称", "出庫情報区分", "出庫情報区分名称", "構内物流費単位区分", "構内物流費単位区分名称", "センターフィー支払先コード", "センターフィー支払先略称", "販売台帳備考１", "販売台帳備考２", "仮単価区分", "仮単価区分名称", "通常単価 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称番号", "通常単価 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称", "通常単価 適用開始日", "通常単価 適用終了日", "通常単価 販売単価(税抜)", "通常単価 販売単価(税込)", "通常単価 店舗単価(税抜)", "通常単価 店舗単価(税込)", "特価単価1 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称番号", "特価単価1 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称", "特価単価1 単価適用開始日", "特価単価1 単価適用終了日", "特価単価1 販売単価(税抜)", "特価単価1 販売単価(税込)", "特価単価1 店舗単価(税抜)", "特価単価1 店舗単価(税込)", "特価単価2 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称ｺｰﾄﾞ(連番)", "特価単価2 ﾘﾍﾞｰﾄﾊﾟﾀｰﾝ名称ｺｰﾄﾞ名称", "特価単価2 単価適用開始日", "特価単価2 単価適用終了日", "特価単価2 販売単価(税抜)", "特価単価2 販売単価(税込)", "特価単価2 店舗単価(税抜)", "特価単価2 店舗単価(税込)", "社内売買 仕入台帳台帳検索キー", "社内売買 仕入台帳主管部門コード", "社内売買 仕入台帳主管部門略称", "社内売買 仕入台帳伝票計上部門ｺｰﾄﾞ", "社内売買 仕入台帳伝票計上部門略称", "社内売買 仕入台帳倉庫コード", "社内売買 倉庫名称", "社内売買 購買先関連ｺｰﾄﾞ(年度)", "社内売買 購買先関連ｺｰﾄﾞ(連番)", "社内売買 購買先関連名称", "社内売買 仕入台帳台帳担当者コード", "社内売買 仕入台帳台帳担当者氏名", "社内売買 仕入台帳備考１", "社内売買 仕入台帳備考２", "社内売買 発注ﾘｰﾄﾞﾀｲﾑ(日)", "社内売買 仕入・物流(仕入)区分", "社内売買 物流(仕入)区分名称", "社内売買 運賃単価コード", "社内売買 運賃単価名称", "RPT用CLIENTID", "タイムスタンプ(時間)", "タイムスタンプ(日付)"];
+  RM.BMS_RECEIPT_HEADERS = ["送信者ID", "送信者ID発行元", "受信者ID", "受信者ID発行元", "バージョン", "インスタンスID", "メッセージ種", "作成日時", "テスト区分ID", "最終送信先ID", "メッセージ識別ID", "送信者ステーションアドレス", "最終受信者ステーションアドレス", "直接受信者ステーションアドレス", "取引数", "支払法人コード", "支払法人GLN", "発注者コード", "発注者GLN", "発注者名称", "発注者名称カナ", "取引番号（発注・返品）", "取引付属番号", "出荷者管理番号", "直接納品先コード", "直接納品先GLN", "直接納品先名称", "直接納品先名称カナ", "最終納品先コード", "最終納品先GLN", "最終納品先名称", "最終納品先名称カナ", "計上部署コード", "計上部署GLN", "計上部署名称（カナ）", "陳列場所コード", "陳列場所名称", "陳列場所名称カナ", "請求取引先コード", "請求取引先GLN", "請求取引先名", "請求取引先名カナ", "取引先コード", "取引先GLN", "取引先名称", "取引先名称カナ", "枝番", "出荷先コード", "出荷場所GLN", "入荷管理用メーカーコード", "センター納品書番号", "納品経路", "便No", "通過在庫区分", "納品区分", "指定納品時刻", "バーコード情報", "カテゴリー名称1（印字用）", "カテゴリー名称2（印字用）", "最終納品先略称（印字用）", "ラベル自由使用欄（印字用）", "ラベル自由使用欄半角カナ（印字用）", "商品移動区分", "商品分類（大）", "商品分類（中）", "発注日", "直接納品先納品日", "最終納品先納品日", "訂正後直接納品先納品日", "訂正後最終納品先納品日", "計上日", "販促開始日", "販促終了日", "照合基準日", "照合基準日区分", "商品区分", "発注区分", "出荷データ有無区分", "取引番号区分", "EOS区分", "PB区分", "配送温度区分", "酒区分", "パック区分", "不定貫区分", "処理種別", "配送料免除区分", "伝票レス区分", "税区分", "税率", "梱包NO", "自由使用欄", "自由使用欄半角カナ", "原価金額合計", "売価金額合計", "税額合計金額", "数量合計", "発注単位数量合計", "重量合計", "取引明細番号（発注・返品）", "取引付属明細番号", "元取引番号", "元取引明細番号", "出荷者管理明細番号", "商品分類（小）", "商品分類（細）", "配達予定日", "納品期限", "センター納品詳細指示", "返品・値引理由コード", "メーカーコード", "商品コード（ＧTIN）", "商品コード（発注用）", "商品コード（取引先）", "商品コード（出荷元）", "商品コード区分", "商品名", "商品名カナ", "規格", "規格カナ", "入数", "都道府県コード", "国コード", "産地名", "水域コード", "水域名", "原産エリア", "等級", "階級", "銘柄", "商品ＰＲ", "バイオ区分", "品種コード", "養殖区分", "解凍区分", "商品状態区分", "形状・部位", "用途", "法定管理義務商材区分", "カラーコード", "カラー名称", "カラー名称カナ", "サイズコード", "サイズ名称", "サイズ名称カナ", "原単価", "原価金額", "売単価", "売価金額", "税額", "発注数量（バラ）", "発注単位", "発注数量（発注単位数）", "発注単位コード", "発注荷姿コード", "発注重量", "取引単位重量", "単価登録単位", "商品重量", "出荷数量（バラ）", "出荷数量（発注単位数）", "出荷重量", "受領数量（バラ）", "受領数量（発注単位数）", "受領重量", "訂正区分", "返品数量（バラ）", "返品重量", "譲渡年月１", "譲渡年月２"];
+})(globalThis.RM = globalThis.RM || {});
+
+/* Excel(.xlsx)/CSV の読込と .xlsx の書出。外部ライブラリなし(ブラウザ標準の圧縮APIのみ使用)。 */
+(function (RM) {
+  'use strict';
+
+  class ReadError extends Error {}
+  RM.ReadError = ReadError;
+
+  // ---------------------------------------------------------------- ZIP
+  const u16 = (b, o) => b[o] | (b[o + 1] << 8);
+  const u32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+
+  function isZip(bytes) {
+    return bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+  }
+  RM.isZip = isZip;
+
+  function zipEntries(bytes) {
+    let eocd = -1;
+    for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) {
+      if (u32(bytes, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new ReadError('Excelファイルの形式が正しくありません。');
+    const count = u16(bytes, eocd + 10);
+    let p = u32(bytes, eocd + 16);
+    const dec = new TextDecoder('utf-8');
+    const map = new Map();
+    for (let i = 0; i < count; i++) {
+      if (u32(bytes, p) !== 0x02014b50) throw new ReadError('Excelファイルの形式が正しくありません。');
+      const method = u16(bytes, p + 10), csize = u32(bytes, p + 20), nlen = u16(bytes, p + 28);
+      const elen = u16(bytes, p + 30), clen = u16(bytes, p + 32), loff = u32(bytes, p + 42);
+      const name = dec.decode(bytes.subarray(p + 46, p + 46 + nlen));
+      map.set(name.toLowerCase(), { name, method, csize, loff });
+      p += 46 + nlen + elen + clen;
+    }
+    return map;
+  }
+
+  function entryStream(bytes, e) {
+    const start = e.loff + 30 + u16(bytes, e.loff + 26) + u16(bytes, e.loff + 28);
+    const data = bytes.subarray(start, start + e.csize);
+    const src = new Blob([data]).stream();
+    if (e.method === 0) return src;
+    if (e.method === 8) return src.pipeThrough(new DecompressionStream('deflate-raw'));
+    throw new ReadError('対応していない圧縮形式です。');
+  }
+
+  async function entryText(bytes, entries, name) {
+    const e = entries.get(name.toLowerCase());
+    if (!e) return null;
+    return await new Response(entryStream(bytes, e)).text();
+  }
+
+  // ---------------------------------------------------------------- XML ヘルパー
+  const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+  function unesc(s) {
+    if (s.indexOf('&') < 0) return s;
+    return s.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-z]+);/g, (m, g) => {
+      if (g[0] === '#') return String.fromCodePoint(g[1] === 'x' ? parseInt(g.slice(2), 16) : parseInt(g.slice(1), 10));
+      return ENT[g] !== undefined ? ENT[g] : m;
+    }).replace(/_x([0-9A-Fa-f]{4})_/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  }
+  function attr(s, name) {
+    const m = new RegExp('(?:^|\\s)' + name + '="([^"]*)"').exec(s);
+    return m ? unesc(m[1]) : null;
+  }
+  // <si> / <is> の文字列(ふりがな <rPh> は除く)
+  function richText(inner) {
+    inner = inner.replace(/<rPh\b[\s\S]*?<\/rPh>/g, '');
+    let out = '';
+    const re = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>|<t\s*\/>/g;
+    let m;
+    while ((m = re.exec(inner))) out += m[1] ? unesc(m[1]) : '';
+    return out;
+  }
+
+  function colIndex(ref) {  // "AB12" -> 28
+    let n = 0;
+    for (let i = 0; i < ref.length; i++) {
+      const c = ref.charCodeAt(i);
+      if (c < 65 || c > 90) break;
+      n = n * 26 + (c - 64);
+    }
+    return n;
+  }
+  function colName(n) {
+    let s = '';
+    while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+  }
+  RM.colName = colName;
+
+  const BUILTIN_DATE = new Set([14, 15, 16, 17, 18, 19, 20, 21, 22, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 45, 46, 47, 50, 51, 52, 53, 54, 55, 56, 57, 58]);
+  function dateStyles(stylesXml) {
+    const isDate = [];
+    if (!stylesXml) return isDate;
+    const custom = new Map();
+    const nf = /<numFmt\b([^>]*)\/?>/g;
+    let m;
+    while ((m = nf.exec(stylesXml))) {
+      const id = +attr(m[1], 'numFmtId');
+      const code = (attr(m[1], 'formatCode') || '').replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '').toLowerCase();
+      custom.set(id, /[ymd]/.test(code) && !/^[#0.,\s%]*$/.test(code));
+    }
+    const xfs = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(stylesXml);
+    if (xfs) {
+      const re = /<xf\b([^>]*?)\/?>/g;
+      while ((m = re.exec(xfs[1]))) {
+        const id = +(attr(m[1], 'numFmtId') || 0);
+        isDate.push(custom.has(id) ? custom.get(id) : BUILTIN_DATE.has(id));
+      }
+    }
+    return isDate;
+  }
+
+  function serialToYmd(n) {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+    return d.getUTCFullYear() + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0');
+  }
+
+  /**
+   * .xlsx を読み、行の配列を返す。各行は列番号(1始まり)をインデックスとする疎な配列。
+   * opts.sheetName: シート名(空なら先頭) / opts.maxRow: この行番号まで読む / opts.cols: 保持する列番号 / opts.onProgress(行番号)
+   */
+  async function readXlsx(buffer, opts = {}) {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    if (!isZip(bytes)) throw new ReadError('Excel(.xlsx)ファイルではありません。古い形式(.xls)の場合は .xlsx で保存し直してください。');
+    const entries = zipEntries(bytes);
+    const wb = await entryText(bytes, entries, 'xl/workbook.xml');
+    const rels = await entryText(bytes, entries, 'xl/_rels/workbook.xml.rels');
+    if (!wb || !rels) throw new ReadError('Excelファイルの形式が正しくありません。');
+    const sheets = [];
+    let m;
+    const sre = /<sheet\b([^>]*)\/?>/g;
+    while ((m = sre.exec(wb))) sheets.push({ name: attr(m[1], 'name'), rid: attr(m[1], 'r:id') });
+    if (!sheets.length) throw new ReadError('シートがありません。');
+    let sheet = sheets[0];
+    if (opts.sheetName) {
+      sheet = sheets.find(s => s.name === opts.sheetName);
+      if (!sheet) throw new ReadError(`シート「${opts.sheetName}」がありません(シート: ${sheets.map(s => s.name).join('、')})`);
+    }
+    let target = null;
+    const rre = /<Relationship\b([^>]*)\/?>/g;
+    while ((m = rre.exec(rels))) if (attr(m[1], 'Id') === sheet.rid) target = attr(m[1], 'Target');
+    if (!target) throw new ReadError('シートが見つかりません。');
+    const path = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
+
+    const shared = [];
+    const ss = await entryText(bytes, entries, 'xl/sharedStrings.xml');
+    if (ss) {
+      const re = /<si>([\s\S]*?)<\/si>|<si\s*\/>/g;
+      while ((m = re.exec(ss))) shared.push(m[1] ? richText(m[1]) : '');
+    }
+    const isDate = dateStyles(await entryText(bytes, entries, 'xl/styles.xml'));
+
+    const e = entries.get(path.toLowerCase());
+    if (!e) throw new ReadError('シートのデータが見つかりません。');
+    const rows = [];
+    const cellRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g;
+    const maxRow = opts.maxRow || Infinity;
+    const keep = opts.cols ? new Set(opts.cols) : null;  // 指定した列だけ保持(メモリ節約)。他の列は「値がある」印だけ残す
+    let seqRow = 0, done = false;
+
+    function parseRow(rowXml) {
+      const head = /^<row\b([^>]*)>/.exec(rowXml);
+      const rAttr = head ? attr(head[1], 'r') : null;
+      const rowNo = rAttr ? +rAttr : seqRow + 1;
+      seqRow = rowNo;
+      if (rowNo > maxRow) { done = true; return; }
+      const row = [];
+      let seqCol = 0, cm;
+      cellRe.lastIndex = 0;
+      while ((cm = cellRe.exec(rowXml))) {
+        const a = cm[1];
+        const ref = attr(a, 'r');
+        const col = ref ? colIndex(ref) : seqCol + 1;
+        seqCol = col;
+        const inner = cm[2];
+        if (inner === undefined) continue;
+        if (keep && !keep.has(col)) { if (/<v>[^<]|<t[^>]*>[^<]/.test(inner)) row.any = true; continue; }
+        const t = attr(a, 't');
+        let v = null;
+        if (t === 'inlineStr') {
+          const is = /<is>([\s\S]*?)<\/is>/.exec(inner);
+          v = is ? richText(is[1]) : '';
+        } else {
+          const vm = /<v>([\s\S]*?)<\/v>/.exec(inner);
+          if (!vm) continue;
+          const raw = vm[1];
+          if (t === 's') v = shared[+raw] !== undefined ? shared[+raw] : '';
+          else if (t === 'str' || t === 'e') v = unesc(raw);
+          else if (t === 'b') v = raw === '1';
+          else if (t === 'd') v = unesc(raw).slice(0, 10).replace(/-/g, '/');
+          else {
+            const n = Number(raw);
+            const s = attr(a, 's');
+            v = (s !== null && isDate[+s]) ? serialToYmd(n) : n;
+          }
+        }
+        row[col] = v;
+      }
+      rows[rowNo - 1] = row;
+      if (opts.onProgress && rowNo % 5000 === 0) opts.onProgress(rowNo);
+    }
+
+    const reader = entryStream(bytes, e).pipeThrough(new TextDecoderStream('utf-8')).getReader();
+    let buf = '';
+    for (;;) {
+      const { value, done: end } = await reader.read();
+      if (end) break;
+      buf += value;
+      let start = buf.indexOf('<row');
+      let last = buf.lastIndexOf('</row>');
+      if (start >= 0 && last > start) {
+        const chunk = buf.slice(start, last + 6);
+        buf = buf.slice(last + 6);
+        const parts = chunk.split('</row>');
+        for (const pr of parts) {
+          const i = pr.indexOf('<row');
+          if (i >= 0) parseRow(pr.slice(i));
+          if (done) break;
+        }
+      } else if (start < 0 && buf.length > 1 << 20) {
+        buf = buf.slice(-64);
+      }
+      if (done) { try { await reader.cancel(); } catch (_) { /* noop */ } break; }
+    }
+    if (!done) {
+      const i = buf.indexOf('<row');
+      if (i >= 0 && buf.indexOf('</row>', i) > 0) parseRow(buf.slice(i, buf.indexOf('</row>', i)));
+    }
+    for (let i = 0; i < rows.length; i++) if (!rows[i]) rows[i] = [];
+    return rows;
+  }
+  RM.readXlsx = readXlsx;
+
+  // ---------------------------------------------------------------- CSV
+  const ENC_LABEL = { 'cp932': 'shift_jis', 'utf-8': 'utf-8', 'utf-8-sig': 'utf-8' };
+  function readCsv(buffer, encoding, delimiter, maxRow) {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    if (isZip(bytes)) throw new ReadError('CSVを指定していますが、Excelファイルが選択されています。');
+    let text;
+    try {
+      text = new TextDecoder(ENC_LABEL[encoding] || encoding, { fatal: true }).decode(bytes);
+    } catch (e) {
+      throw new ReadError(`文字コード ${RM.ENCODINGS[encoding] || encoding} として読めません。レイアウトの文字コード設定を確認してください。`);
+    }
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    const rows = [];
+    let row = [''], i = 0, q = false, col = 0;
+    const n = text.length, d = delimiter || ',';
+    const lim = maxRow || Infinity;
+    while (i < n) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { row[col] += '"'; i += 2; continue; } q = false; i++; continue; }
+        row[col] += c; i++; continue;
+      }
+      if (c === '"' && row[col] === '') { q = true; i++; continue; }
+      if (c === d) { row.push(''); col++; i++; continue; }
+      if (c === '\r' || c === '\n') {
+        rows.push(row); if (rows.length >= lim) break;
+        row = ['']; col = 0;
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        i++; continue;
+      }
+      row[col] += c; i++;
+    }
+    if (rows.length < lim && !(row.length === 1 && row[0] === '')) rows.push(row);
+    // 列番号(1始まり)に揃える
+    return rows.map(r => { const a = [undefined]; for (const v of r) a.push(v); return a; });
+  }
+  RM.readCsv = readCsv;
+
+  /** ファイル種別に応じて読む。行は 1始まりの列番号で参照する。 */
+  async function readRows(buffer, fileType, opts = {}) {
+    if (fileType === 'excel') return readXlsx(buffer, opts);
+    return readCsv(buffer, opts.encoding || 'cp932', opts.delimiter || ',', opts.maxRow);
+  }
+  RM.readRows = readRows;
+
+  // ---------------------------------------------------------------- .xlsx 書出
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  function crc32(b) { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+
+  async function deflate(bytes) {
+    const s = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+
+  async function zip(files) {  // files: [{name, data(Uint8Array)}]
+    const enc = new TextEncoder();
+    const parts = [], cd = [];
+    let off = 0;
+    const now = new Date();
+    const dt = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+    const dd = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+    for (const f of files) {
+      const name = enc.encode(f.name);
+      const comp = await deflate(f.data);
+      const crc = crc32(f.data);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 8, true);
+      lh.setUint16(10, dt, true); lh.setUint16(12, dd, true); lh.setUint32(14, crc, true);
+      lh.setUint32(18, comp.length, true); lh.setUint32(22, f.data.length, true); lh.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(lh.buffer), name, comp);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+      ch.setUint16(10, 8, true); ch.setUint16(12, dt, true); ch.setUint16(14, dd, true); ch.setUint32(16, crc, true);
+      ch.setUint32(20, comp.length, true); ch.setUint32(24, f.data.length, true); ch.setUint16(28, name.length, true);
+      ch.setUint32(42, off, true);
+      cd.push(new Uint8Array(ch.buffer), name);
+      off += 30 + name.length + comp.length;
+    }
+    const cdSize = cd.reduce((a, b) => a + b.length, 0);
+    const eo = new DataView(new ArrayBuffer(22));
+    eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, files.length, true); eo.setUint16(10, files.length, true);
+    eo.setUint32(12, cdSize, true); eo.setUint32(16, off, true);
+    return new Blob([...parts, ...cd, new Uint8Array(eo.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  const xesc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+
+  // スタイル: fill 0なし 1黄 2青 3赤 4見出し(紺) / fmt 0なし 1金額 2数量 3重量 / bold
+  const FILLS = ['', 'FFF2B3', 'D6E6FA', 'F9D4D4', '17324D'];
+  const FMTS = [0, 164, 165, 166];
+  function styleId(fill, fmt, kind) {  // kind 0通常(罫線) 1見出し 2太字 3タイトル 4罫線なし
+    if (kind === 1) return 1;
+    if (kind === 2) return 2;
+    if (kind === 3) return 3;
+    if (kind === 4) return 0;
+    return 4 + fill * 4 + fmt;
+  }
+  RM.xlStyle = styleId;
+  function stylesXml() {
+    let xfs = '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
+      '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+      '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>';
+    for (let f = 0; f < 4; f++) for (let n = 0; n < 4; n++) {
+      xfs += `<xf numFmtId="${FMTS[n]}" fontId="0" fillId="${f === 0 ? 0 : f + 1}" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>`;
+    }
+    const fills = '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+      FILLS.slice(1).map(c => `<fill><patternFill patternType="solid"><fgColor rgb="FF${c}"/><bgColor indexed="64"/></patternFill></fill>`).join('');
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+      '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+      '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0;[Red]\\-#,##0"/><numFmt numFmtId="165" formatCode="#,##0.###;[Red]\\-#,##0.###"/><numFmt numFmtId="166" formatCode="#,##0.000;[Red]\\-#,##0.000"/></numFmts>' +
+      '<fonts count="4"><font><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="11"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font>' +
+      '<font><b/><sz val="14"/><name val="游ゴシック"/><family val="3"/><charset val="128"/></font></fonts>' +
+      `<fills count="${2 + FILLS.length - 1 + 1}">${fills}<fill><patternFill patternType="solid"><fgColor rgb="FF17324D"/><bgColor indexed="64"/></patternFill></fill></fills>` +
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+      '<border><left style="thin"><color rgb="FFD0D5DB"/></left><right style="thin"><color rgb="FFD0D5DB"/></right><top style="thin"><color rgb="FFD0D5DB"/></top><bottom style="thin"><color rgb="FFD0D5DB"/></bottom><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      `<cellXfs count="${4 + 16}">${xfs}</cellXfs>` +
+      '<cellStyles count="1"><cellStyle name="標準" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  }
+
+  /**
+   * sheets: [{name, widths:[..], rows:[[{v, s}...]], freeze:bool, filter:bool}]
+   * v: 文字列/数値/null、s: スタイル番号
+   */
+  async function writeXlsx(sheets) {
+    const enc = new TextEncoder();
+    const files = [];
+    const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+    sheets.forEach((sh, si) => {
+      const out = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>', `<worksheet ${ns}>`];
+      const nrows = sh.rows.length, ncols = Math.max(1, ...sh.rows.map(r => r.length));
+      out.push(`<dimension ref="A1:${colName(ncols)}${Math.max(1, nrows)}"/>`);
+      out.push('<sheetViews><sheetView workbookViewId="0"' + (si === 0 ? ' tabSelected="1"' : '') + '>' +
+        (sh.freeze ? '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/>' : '') +
+        '</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18"/>');
+      if (sh.widths && sh.widths.length) out.push('<cols>' + sh.widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('') + '</cols>');
+      out.push('<sheetData>');
+      for (let r = 0; r < nrows; r++) {
+        const row = sh.rows[r];
+        let x = `<row r="${r + 1}">`;
+        for (let c = 0; c < row.length; c++) {
+          const cell = row[c];
+          if (!cell) continue;
+          const ref = colName(c + 1) + (r + 1);
+          const s = cell.s ? ` s="${cell.s}"` : '';
+          const v = cell.v;
+          if (v === null || v === undefined || v === '') x += `<c r="${ref}"${s}/>`;
+          else if (typeof v === 'number' && isFinite(v)) x += `<c r="${ref}"${s}><v>${v}</v></c>`;
+          else x += `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`;
+        }
+        out.push(x + '</row>');
+      }
+      out.push('</sheetData>');
+      if (sh.filter && nrows > 0) out.push(`<autoFilter ref="A1:${colName(ncols)}${nrows}"/>`);
+      out.push('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>');
+      files.push({ name: `xl/worksheets/sheet${si + 1}.xml`, data: enc.encode(out.join('')) });
+    });
+    const sheetList = sheets.map((s, i) => `<sheet name="${xesc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('');
+    const defNames = sheets.map((s, i) => s.filter && s.rows.length ? `<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${xesc(s.name)}'!$A$1:$${colName(Math.max(1, ...s.rows.map(r => r.length)))}$${s.rows.length}</definedName>` : '').join('');
+    files.unshift(
+      { name: '[Content_Types].xml', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>') },
+      { name: '_rels/.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>') },
+      { name: 'xl/workbook.xml', data: enc.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${ns}><bookViews><workbookView/></bookViews><sheets>${sheetList}</sheets>${defNames ? '<definedNames>' + defNames + '</definedNames>' : ''}</workbook>`) },
+      { name: 'xl/_rels/workbook.xml.rels', data: enc.encode('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') + `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`) },
+      { name: 'xl/styles.xml', data: enc.encode(stylesXml()) },
+    );
+    return zip(files);
+  }
+  RM.writeXlsx = writeXlsx;
+})(globalThis.RM = globalThis.RM || {});
+
+/* 取込値の正規化(コード・数値・日付)と表示書式 */
+(function (RM) {
+  'use strict';
+  const MINUS = ['▲', '△', '−', '－'];
+  RM.ENCODINGS = { 'cp932': 'Shift_JIS(CP932)', 'utf-8': 'UTF-8', 'utf-8-sig': 'UTF-8(BOM付)' };
+  RM.DELIMITERS = { ',': 'カンマ', '\t': 'タブ' };
+  RM.DATE_FORMATS = { '': '自動判別', 'YYYYMMDD': 'YYYYMMDD', 'YYYY/MM/DD': 'YYYY/MM/DD', 'YYYY-MM-DD': 'YYYY-MM-DD' };
+
+  function text(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'boolean') return v ? 'True' : 'False';
+    return String(v).replace(/　/g, ' ').trim();
+  }
+  function code(v) {
+    const s = text(v).normalize('NFKC').trim();
+    if (/^\d+$/.test(s)) return s.replace(/^0+/, '') || '0';
+    return s;
+  }
+  const isBlank = v => text(v) === '';
+
+  function number(v) {
+    if (v === null || v === undefined) return 0;
+    if (typeof v === 'boolean') throw new Error('数値ではありません');
+    if (typeof v === 'number') return v;
+    let s = String(v).normalize('NFKC').trim();
+    if (s === '') return 0;
+    let neg = false;
+    for (const m of MINUS) if (s.startsWith(m)) { neg = true; s = s.slice(m.length); }
+    s = s.replace(/,/g, '').replace(/円/g, '').replace(/\s/g, '');
+    if (s.length > 1 && s.endsWith('-')) { neg = true; s = s.slice(0, -1); }
+    if (!/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(s)) throw new Error('数値として読めません: ' + String(v).slice(0, 20));
+    const n = Number(s);
+    return neg ? -n : n;
+  }
+  const rhu = x => (x < 0 ? -1 : 1) * Math.floor(Math.abs(x) + 0.5 + 1e-9);
+  const toAmount = n => rhu(n) || 0;          // 金額は整数(円)で比較
+  const toMilli = n => rhu(n * 1000) || 0;    // 数量・重量は小数第3位まで(×1000の整数)
+
+  function ymd(y, m, d) {
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+  const FMT_RE = {
+    'YYYYMMDD': /^(\d{4})(\d{2})(\d{2})$/,
+    'YYYY/MM/DD': /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/,
+    'YYYY-MM-DD': /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+  };
+  function date(v, fmt) {
+    if (typeof v === 'number' && isFinite(v)) {
+      const n = Math.trunc(v);
+      if (n >= 19000101 && n <= 29991231) v = String(n);
+      else if (n >= 1 && n < 2958466) {
+        const d = new Date(Date.UTC(1899, 11, 30) + n * 86400000);
+        return d.toISOString().slice(0, 10);
+      }
+    }
+    const s = text(v).normalize('NFKC');
+    if (!s) throw new Error('日付が空欄です');
+    let m = null;
+    if (fmt && FMT_RE[fmt]) m = FMT_RE[fmt].exec(s.split(' ')[0]);
+    else m = /^(\d{4})(\d{2})(\d{2})$/.exec(s) || /^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/.exec(s);
+    const r = m && ymd(+m[1], +m[2], +m[3]);
+    if (!r) throw new Error('日付として読めません: ' + s.slice(0, 20));
+    return r;
+  }
+  const fmtDate = iso => (iso ? iso.replace(/-/g, '/') : '');
+
+  const fAmt = n => (n === null || n === undefined ? '' : n.toLocaleString('en-US'));
+  const fQty = m => (m === null || m === undefined ? '' : (m / 1000).toLocaleString('en-US', { maximumFractionDigits: 3 }));
+  const fWt = m => (m === null || m === undefined ? '' : (m / 1000).toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }));
+  const signed = (fn, n) => (n > 0 ? '+' : '') + fn(n);
+
+  Object.assign(RM, { text, code, isBlank, number, toAmount, toMilli, date, fmtDate, fAmt, fQty, fWt, signed });
+})(globalThis.RM = globalThis.RM || {});
+
+/* 保存(このPCのブラウザ内 IndexedDB)。テスト用にメモリ保存も用意。 */
+(function (RM) {
+  'use strict';
+  const STORES = {
+    kv: { keyPath: 'k' },                       // 販売台帳・設定など
+    layouts: { keyPath: 'id', autoIncrement: true },
+    assignments: { keyPath: 'cust' },
+    matches: { keyPath: 'id', autoIncrement: true },
+    lines: { keyPath: 'id' },                   // 照合ごとの明細 {id, sales, receipt}
+    confs: { keyPath: 'id' },                   // 照合ごとの確認状況 {id, items}
+  };
+  RM.STORE_NAMES = Object.keys(STORES);
+
+  function req(r) { return new Promise((ok, ng) => { r.onsuccess = () => ok(r.result); r.onerror = () => ng(r.error); }); }
+
+  class IdbStore {
+    static async open(name = 'receipt-matcher') {
+      const r = indexedDB.open(name, 1);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        for (const [n, o] of Object.entries(STORES)) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, o);
+      };
+      const s = new IdbStore();
+      s.db = await req(r);
+      return s;
+    }
+    tx(store, mode) { return this.db.transaction(store, mode).objectStore(store); }
+    get(store, key) { return req(this.tx(store, 'readonly').get(key)); }
+    all(store) { return req(this.tx(store, 'readonly').getAll()); }
+    put(store, value) { return req(this.tx(store, 'readwrite').put(value)); }
+    del(store, key) { return req(this.tx(store, 'readwrite').delete(key)); }
+    clear(store) { return req(this.tx(store, 'readwrite').clear()); }
+    async estimate() { try { return await navigator.storage.estimate(); } catch (_) { return null; } }
+  }
+
+  class MemStore {
+    constructor() { this.m = {}; this.seq = {}; for (const n of Object.keys(STORES)) { this.m[n] = new Map(); this.seq[n] = 0; } }
+    static async open() { return new MemStore(); }
+    clone(v) { return v === undefined ? v : structuredClone(v); }
+    async get(store, key) { return this.clone(this.m[store].get(key)); }
+    async all(store) { return [...this.m[store].values()].map(v => this.clone(v)); }
+    async put(store, value) {
+      const o = STORES[store];
+      value = this.clone(value);
+      if (o.autoIncrement && (value[o.keyPath] === undefined || value[o.keyPath] === null)) value[o.keyPath] = ++this.seq[store];
+      else if (o.autoIncrement) this.seq[store] = Math.max(this.seq[store], value[o.keyPath]);
+      this.m[store].set(value[o.keyPath], value);
+      return value[o.keyPath];
+    }
+    async del(store, key) { this.m[store].delete(key); }
+    async clear(store) { this.m[store].clear(); }
+    async estimate() { return null; }
+  }
+  RM.IdbStore = IdbStore;
+  RM.MemStore = MemStore;
+})(globalThis.RM = globalThis.RM || {});
+
+/* 業務ロジック: 売上・販売台帳・受領レイアウトの取込、商品コード変換、照合、確認状況、レポート、バックアップ */
+(function (RM) {
+  'use strict';
+  const { text, code, isBlank, number, toAmount, toMilli, date, fmtDate, ReadError } = RM;
+  const now = () => { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+  RM.now = now;
+  const cell = (row, col) => (row ? row[col] : undefined);
+
+  // ================================================================ 売上(固定レイアウト・188列、列は位置で特定)
+  RM.SALES_COLS = { cust: 7, cust_name: 8, store: 81, store_name: 82, tdate: 137, order_no: 35, own_code: 9, name: 10, qty: 33, wt: 32, amt: 58, slip_no: 18 };
+
+  function checkHeaders(header, cols, expected, label) {
+    const errs = [];
+    for (const col of Object.values(cols)) {
+      const a = text(cell(header, col));
+      if (a !== expected[col - 1]) errs.push(`${col}列目の見出しが「${a || '(空欄)'}」です(想定:「${expected[col - 1]}」)`);
+    }
+    if (errs.length) throw new ReadError(`${label}のレイアウトが想定と異なります。` + errs.slice(0, 5).join(' / '));
+  }
+
+  const hasAny = r => !!r.any || r.some(v => !isBlank(v));
+  RM.hasAny = hasAny;
+
+  async function parseSales(buf, cust, dfrom, dto, onProgress) {
+    const rows = await RM.readXlsx(buf, { onProgress, cols: Object.values(RM.SALES_COLS) });
+    if (!rows.length) throw new ReadError('売上データが空です。');
+    checkHeaders(rows[0], RM.SALES_COLS, RM.SALES_HEADERS, '売上データ');
+    const C = RM.SALES_COLS, ck = code(cust);
+    const lines = [], errors = [];
+    const stats = { total: 0, target: 0, skipped_blank: 0, other_cust: 0, out_of_period: 0, error: 0 };
+    let custName = '';
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i], g = k => cell(r, C[k]);
+      if (isBlank(g('tdate')) && isBlank(g('order_no')) && isBlank(g('own_code'))) {
+        if (hasAny(r)) stats.skipped_blank++;
+        continue;
+      }
+      stats.total++;
+      if (code(g('cust')) !== ck) { stats.other_cust++; continue; }
+      let td, q, w, a;
+      try { td = date(g('tdate')); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
+      catch (e) { stats.error++; errors.push({ file: '売上', row: i + 1, msg: e.message }); continue; }
+      if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
+      custName = custName || text(g('cust_name'));
+      lines.push({ row_no: i + 1, store: code(g('store')), store_name: text(g('store_name')), tdate: td, order_no: code(g('order_no')),
+        slip_no: text(g('slip_no')), own_code: code(g('own_code')), name: text(g('name')), qty: toMilli(q), wt: toMilli(w), amt: toAmount(a) });
+    }
+    stats.target = lines.length;
+    return { lines, errors, stats, custName };
+  }
+
+  // ================================================================ 販売台帳
+  RM.LEDGER_COLS = { deleted: 1, own_code: 59, own_name: 60, partner_code: 72, cust: 111, cust_name: 112, store: 113 };
+  RM.STORE_ANY = '99999999999';
+
+  RM.importLedger = importLedger;
+  async function importLedger(buf, fileName, onProgress) {
+    const rows = await RM.readXlsx(buf, { onProgress, cols: Object.values(RM.LEDGER_COLS) });
+    if (!rows.length) throw new ReadError('販売台帳が空です。');
+    checkHeaders(rows[0], RM.LEDGER_COLS, RM.LEDGER_HEADERS, '販売台帳');
+    const C = RM.LEDGER_COLS, recs = [];
+    let total = 0, deleted = 0, skipped = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (!hasAny(r)) continue;
+      total++;
+      const g = k => cell(r, C[k]);
+      if (text(g('deleted')) === '9') { deleted++; continue; }
+      const pc = code(g('partner_code')), oc = code(g('own_code'));
+      if (!pc || !oc) { skipped++; continue; }
+      recs.push([code(g('cust')), text(g('cust_name')), code(g('store')) || RM.STORE_ANY, pc, oc, text(g('own_name'))]);
+    }
+    const meta = { file_name: fileName, imported_at: now(), total_rows: total, loaded_rows: recs.length, deleted_rows: deleted, skipped_rows: skipped };
+    await RM.db.put('kv', { k: 'ledger', meta, rows: recs });
+    return meta;
+  }
+  async function ledger() { return (await RM.db.get('kv', 'ledger')) || { meta: null, rows: [] }; }
+  RM.ledgerRows = async () => (await ledger()).rows.map(r => ({ cust: r[0], cust_name: r[1], store: r[2], partner_code: r[3], own_code: r[4], own_name: r[5] }));
+  RM.ledgerMeta = async () => (await ledger()).meta;
+  RM.ledgerCustomers = async () => {
+    const m = new Map();
+    for (const r of (await ledger()).rows) if (!m.has(r[0]) || (!m.get(r[0]) && r[1])) m.set(r[0], r[1]);
+    return [...m.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  };
+  RM.ledgerDupKeys = rows => {
+    const m = new Map();
+    for (const r of rows) { const k = r.cust + '|' + r.store + '|' + r.partner_code; if (!m.has(k)) m.set(k, new Set()); m.get(k).add(r.own_code); }
+    return m;
+  };
+
+  class Converter {
+    constructor(rows, cust) {
+      this.map = new Map();
+      const ck = code(cust);
+      for (const r of rows) {
+        if (r[0] !== ck) continue;
+        const k = r[2] + '|' + r[3];
+        if (!this.map.has(k)) this.map.set(k, []);
+        this.map.get(k).push([r[4], r[5]]);
+      }
+    }
+    convert(store, pcode) {
+      let hits = store ? this.map.get(store + '|' + pcode) : null, via = '店舗一致';
+      if (!hits) { hits = this.map.get(RM.STORE_ANY + '|' + pcode); via = '店舗指定なし'; }
+      if (!hits) return ['[未変換]' + pcode, '', 'none', '販売台帳に登録がありません'];
+      const [own, name] = hits[0];
+      if (new Set(hits.map(h => h[0])).size > 1) return [own, name, 'multi', `候補${hits.length}件の先頭を採用(${via}): ` + hits.slice(0, 5).map(h => h[0]).join('、')];
+      return [own, name, 'ok', via];
+    }
+  }
+
+  // ================================================================ 受領レイアウト
+  RM.ROLES = [
+    ['tdate', '取引日付', true], ['order_no', '相手先注文番号', true], ['partner_code', '相手先商品コード', true], ['amt', '金額', true],
+    ['qty', '数量', false], ['wt', '重量', false], ['store', '店舗コード', false], ['store_name', '店舗名', false],
+    ['cust', '販売先コード', false], ['name', '商品名', false], ['unit_price', '単価', false],
+  ];
+  RM.ROLE_LABEL = Object.fromEntries(RM.ROLES.map(r => [r[0], r[1]]));
+  RM.REQUIRED = RM.ROLES.filter(r => r[2]).map(r => r[0]);
+  const SUGGEST = {
+    '取引日付': 'tdate', '計上日': 'tdate', '相手先注文番号': 'order_no', '取引番号（発注・返品）': 'order_no',
+    '相手先商品コード': 'partner_code', '販売先商品識別ｺｰﾄﾞ': 'partner_code', '受領金額': 'amt', '原価金額': 'amt',
+    '受領数量(総バラ)': 'qty', '受領数量（バラ）': 'qty', '受領重量': 'wt', '店舗コード': 'store', '店舗略称': 'store_name',
+    '販売先コード': 'cust', '相手先商品名カナ': 'name', '商品名': 'name', '受領単価': 'unit_price', '原単価': 'unit_price',
+  };
+  RM.STANDARD_MAP = { 2: 'tdate', 3: 'store', 4: 'store_name', 5: 'order_no', 7: 'unit_price', 8: 'amt', 11: 'cust', 14: 'partner_code', 15: 'name', 21: 'qty', 22: 'wt' };
+  RM.BMS_MAP = { 71: 'tdate', 29: 'store', 31: 'store_name', 22: 'order_no', 113: 'partner_code', 117: 'name', 146: 'unit_price', 147: 'amt', 163: 'qty', 165: 'wt' };
+
+  function newLayout(name, std, file_type, encoding, delimiter, sheet_name, header_row, data_start_row, headers, mapping) {
+    return { name, is_standard: std, file_type, encoding, delimiter, sheet_name, header_row, data_start_row, updated_at: now(),
+      sample_file: '', sample_rows: [], columns: headers.map((h, i) => ({ col_no: i + 1, header: h, role: mapping[i + 1] || '', date_format: '' })) };
+  }
+  RM.seed = async () => {
+    if ((await RM.db.all('layouts')).length) return;
+    await RM.db.put('layouts', newLayout('標準レイアウト', true, 'excel', 'cp932', ',', '', 1, 2, RM.STANDARD_RECEIPT_HEADERS, RM.STANDARD_MAP));
+    await RM.db.put('layouts', newLayout('流通BMS 受領CSV', false, 'csv', 'cp932', ',', '', 1, 2, RM.BMS_RECEIPT_HEADERS, RM.BMS_MAP));
+  };
+  RM.layouts = async () => (await RM.db.all('layouts')).sort((a, b) => (b.is_standard - a.is_standard) || (a.id - b.id));
+  RM.assignments = async () => (await RM.db.all('assignments')).sort((a, b) => (a.cust < b.cust ? -1 : 1));
+  RM.layoutFor = async cust => {
+    const a = await RM.db.get('assignments', code(cust));
+    if (a) { const l = await RM.db.get('layouts', a.layout_id); if (l) return [l, true]; }
+    return [(await RM.db.all('layouts')).find(l => l.is_standard) || null, false];
+  };
+
+  async function readSample(buf, lay) {
+    const rows = await RM.readRows(buf, lay.file_type, { encoding: lay.encoding, delimiter: lay.delimiter, sheetName: lay.sheet_name, maxRow: lay.data_start_row + 4 });
+    if (rows.length < lay.header_row) throw new ReadError(`見出し行(${lay.header_row}行目)がありません。`);
+    const hr = rows[lay.header_row - 1];
+    const header = [];
+    for (let c = 1; c < hr.length; c++) header.push(text(hr[c]));
+    while (header.length && header[header.length - 1] === '') header.pop();
+    if (!header.length) throw new ReadError(`${lay.header_row}行目に見出しがありません。`);
+    const samples = rows.slice(lay.data_start_row - 1, lay.data_start_row + 4).map(r => header.map((_, i) => text(cell(r, i + 1))));
+    return { header, samples };
+  }
+  RM.createLayoutFromSample = async (settings, fileName, buf) => {
+    const { header, samples } = await readSample(buf, settings);
+    const used = new Set(), map = {};
+    header.forEach((h, i) => { const r = SUGGEST[h]; if (r && !used.has(r)) { map[i + 1] = r; used.add(r); } });
+    const lay = newLayout(settings.name, false, settings.file_type, settings.encoding, settings.delimiter, settings.sheet_name, settings.header_row, settings.data_start_row, header, map);
+    lay.sample_file = fileName; lay.sample_rows = samples;
+    return RM.db.put('layouts', lay);
+  };
+  RM.reloadSample = async (id, fileName, buf) => {
+    const lay = await RM.db.get('layouts', id);
+    const { header, samples } = await readSample(buf, lay);
+    const old = new Map(lay.columns.map(c => [c.col_no + '|' + c.header, c]));
+    lay.columns = header.map((h, i) => { const o = old.get((i + 1) + '|' + h); return { col_no: i + 1, header: h, role: o ? o.role : '', date_format: o ? o.date_format : '' }; });
+    lay.sample_file = fileName; lay.sample_rows = samples; lay.updated_at = now();
+    await RM.db.put('layouts', lay);
+  };
+  RM.validateRoles = cols => {
+    const used = cols.map(c => c.role).filter(Boolean), errs = [];
+    for (const k of RM.REQUIRED) if (!used.includes(k)) errs.push(`必須の役割「${RM.ROLE_LABEL[k]}」が設定されていません`);
+    for (const k of [...new Set(used)]) if (used.filter(u => u === k).length > 1) errs.push(`役割「${RM.ROLE_LABEL[k]}」が複数の列に設定されています`);
+    return errs;
+  };
+  RM.saveLayout = async (id, settings, roles, fmts) => {
+    const lay = await RM.db.get('layouts', id);
+    const cols = lay.columns.map(c => ({ ...c, role: roles[c.col_no] !== undefined ? roles[c.col_no] : c.role }));
+    cols.forEach(c => { c.date_format = c.role === 'tdate' ? (fmts[c.col_no] !== undefined ? fmts[c.col_no] : c.date_format) : ''; });
+    const errs = RM.validateRoles(cols);
+    if (!(settings.header_row >= 1) || !(settings.data_start_row > settings.header_row)) errs.push('データ開始行は見出し行より後ろにしてください');
+    if (!settings.name.trim()) errs.push('レイアウト名を入力してください');
+    if (errs.length) return errs;
+    Object.assign(lay, settings, { name: settings.name.trim(), sheet_name: settings.sheet_name.trim(), columns: cols, updated_at: now() });
+    await RM.db.put('layouts', lay);
+    return [];
+  };
+  RM.setStandard = async id => { for (const l of await RM.db.all('layouts')) { l.is_standard = l.id === id; await RM.db.put('layouts', l); } };
+  RM.deleteLayout = async id => {
+    const l = await RM.db.get('layouts', id);
+    if (!l) return 'レイアウトが見つかりません';
+    if (l.is_standard) return '標準レイアウトは削除できません(先に別のレイアウトを標準にしてください)';
+    if ((await RM.db.all('assignments')).some(a => a.layout_id === id)) return '得意先に割り当てられているため削除できません(先に割当を解除してください)';
+    await RM.db.del('layouts', id);
+    return null;
+  };
+  RM.assign = async (cust, custName, layoutId) => {
+    let name = custName.trim();
+    if (!name) name = ((await RM.ledgerCustomers()).find(c => c[0] === code(cust)) || [, ''])[1] || '';
+    await RM.db.put('assignments', { cust: code(cust), cust_name: name, layout_id: layoutId });
+  };
+  RM.unassign = cust => RM.db.del('assignments', cust);
+
+  RM.previewLayout = lay => lay.sample_rows.map(s => {
+    const rec = {};
+    for (const c of lay.columns) {
+      if (!c.role) continue;
+      const raw = s[c.col_no - 1] || '';
+      try {
+        if (c.role === 'tdate') rec.tdate = fmtDate(date(raw, c.date_format));
+        else if (c.role === 'amt') rec.amt = RM.fAmt(toAmount(number(raw)));
+        else if (c.role === 'qty' || c.role === 'wt') rec[c.role] = RM.fWt(toMilli(number(raw)));
+        else if (['order_no', 'partner_code', 'store', 'cust'].includes(c.role)) rec[c.role] = code(raw);
+        else rec[c.role] = raw;
+      } catch (e) { rec[c.role] = '⚠ ' + e.message; }
+    }
+    return rec;
+  });
+
+  async function parseReceipt(lay, buf, cust, dfrom, dto, conv, onProgress) {
+    const cols = {};
+    for (const c of lay.columns) if (c.role) cols[c.role] = c;
+    const missing = RM.REQUIRED.filter(k => !cols[k]).map(k => RM.ROLE_LABEL[k]);
+    if (missing.length) throw new ReadError(`レイアウト「${lay.name}」に必須の役割がありません: ${missing.join('、')}`);
+    const rows = await RM.readRows(buf, lay.file_type, { encoding: lay.encoding, delimiter: lay.delimiter, sheetName: lay.sheet_name, onProgress,
+      cols: Object.values(cols).map(c => c.col_no) });
+    const ck = code(cust), lines = [], errors = [];
+    const stats = { total: 0, target: 0, skipped_blank: 0, other_cust: 0, out_of_period: 0, error: 0, conv_none: 0, conv_multi: 0 };
+    for (let i = lay.data_start_row - 1; i < rows.length; i++) {
+      const r = rows[i], g = k => (cols[k] ? cell(r, cols[k].col_no) : undefined);
+      if (isBlank(g('tdate')) && isBlank(g('order_no')) && isBlank(g('partner_code'))) {
+        if (hasAny(r)) stats.skipped_blank++;
+        continue;
+      }
+      stats.total++;
+      if (cols.cust && !isBlank(g('cust')) && code(g('cust')) !== ck) { stats.other_cust++; continue; }
+      let td, q, w, a;
+      try { td = date(g('tdate'), cols.tdate.date_format); q = number(g('qty')); w = number(g('wt')); a = number(g('amt')); }
+      catch (e) { stats.error++; errors.push({ file: '受領', row: i + 1, msg: e.message }); continue; }
+      if (td < dfrom || td > dto) { stats.out_of_period++; continue; }
+      const store = code(g('store')), pc = code(g('partner_code'));
+      const [own, ownName, st, note] = conv.convert(store, pc);
+      if (st === 'none') stats.conv_none++; else if (st === 'multi') stats.conv_multi++;
+      lines.push({ row_no: i + 1, store, store_name: text(g('store_name')), tdate: td, order_no: code(g('order_no')), partner_code: pc,
+        own_code: own, name: text(g('name')), own_name: ownName, qty: toMilli(q), wt: toMilli(w), unit_price: text(g('unit_price')),
+        amt: toAmount(a), conv_status: st, conv_note: note });
+    }
+    stats.target = lines.length;
+    return { lines, errors, stats };
+  }
+
+  // ================================================================ 照合
+  RM.VIEWS = {
+    day: { label: '日別', keys: ['tdate'], k1: '取引日付', k2: '' },
+    store: { label: '日別店別', keys: ['tdate', 'store'], k1: '取引日付', k2: '店舗' },
+    slip: { label: '伝票番号別', keys: ['order_no'], k1: '相手先注文番号', k2: '取引日付・店舗' },
+    item: { label: '日別商品別', keys: ['tdate', 'own_code'], k1: '取引日付', k2: '自社商品コード・商品名' },
+  };
+  RM.JUDGE = { ok: ['一致', 'b-ok', ''], diff: ['差異あり', 'b-diff', 'r-diff'], sonly: ['自社のみ', 'b-s', 'r-s'], ronly: ['受領のみ', 'b-r', 'r-r'] };
+  const MAX_ERRORS = 500;
+
+  /** ファイルを読み込み、下書き(未保存)を返す。確定は confirm。 */
+  RM.stage = async ({ cust, dateFrom, dateTo, salesName, salesBuf, receiptName, receiptBuf, parentId, onProgress }) => {
+    cust = code(cust);
+    if (!cust) throw new ReadError('販売先コードを入力してください。');
+    if (dateFrom > dateTo) throw new ReadError('期間の From が To より後になっています。');
+    const [lay, assigned] = await RM.layoutFor(cust);
+    if (!lay) throw new ReadError('標準レイアウトが登録されていません。受領レイアウト画面で標準を指定してください。');
+    onProgress && onProgress('売上データを読み込んでいます…');
+    const s = await parseSales(salesBuf, cust, dateFrom, dateTo, n => onProgress && onProgress(`売上データを読み込んでいます…(${n.toLocaleString()}行)`));
+    const led = await ledger();
+    const conv = new Converter(led.rows, cust);
+    onProgress && onProgress('受領データを読み込んでいます…');
+    const r = await parseReceipt(lay, receiptBuf, cust, dateFrom, dateTo, conv, n => onProgress && onProgress(`受領データを読み込んでいます…(${n.toLocaleString()}行)`));
+    let custName = s.custName;
+    if (!custName) custName = ((await RM.ledgerCustomers()).find(c => c[0] === cust) || [, ''])[1] || '';
+    const errors = s.errors.concat(r.errors);
+    return {
+      parent_id: parentId || null, cust, cust_name: custName, date_from: dateFrom, date_to: dateTo,
+      sales_file: salesName, receipt_file: receiptName, layout_name: lay.name, created_at: now(),
+      stats: { sales: s.stats, receipt: r.stats, error_count: errors.length, layout_assigned: assigned, ledger_empty: !led.meta },
+      errors: errors.slice(0, MAX_ERRORS), sales: s.lines, receipt: r.lines,
+    };
+  };
+
+  RM.confirm = async draft => {
+    const { sales, receipt, ...m } = draft;
+    m.status = 'done';
+    m.matched_at = now();
+    let id;
+    if (m.parent_id && await RM.db.get('matches', m.parent_id)) {
+      id = m.parent_id;
+      const p = await RM.db.get('matches', id);
+      Object.assign(p, m, { id, parent_id: null });
+      await RM.db.put('matches', p);
+    } else {
+      delete m.parent_id;
+      id = await RM.db.put('matches', m);
+    }
+    await RM.db.put('lines', { id, sales, receipt });
+    RM._cache = null;
+    await RM.refreshSummary(id);
+    return id;
+  };
+
+  RM.getMatch = id => RM.db.get('matches', id);
+  RM.listMatches = async (f = {}) => {
+    let ms = (await RM.db.all('matches')).filter(m => m.status === 'done');
+    if (f.cust) ms = ms.filter(m => m.cust === code(f.cust));
+    if (f.dateFrom) ms = ms.filter(m => m.date_to >= f.dateFrom);
+    if (f.dateTo) ms = ms.filter(m => m.date_from <= f.dateTo);
+    if (f.unchecked) ms = ms.filter(m => m.unchecked_rows > 0);
+    return ms.sort((a, b) => ((b.matched_at || '') + String(b.id).padStart(9, '0')).localeCompare((a.matched_at || '') + String(a.id).padStart(9, '0')));
+  };
+  RM.deleteMatch = async id => { await RM.db.del('matches', id); await RM.db.del('lines', id); await RM.db.del('confs', id); RM._cache = null; };
+
+  async function lines(id) {
+    if (RM._cache && RM._cache.id === id) return RM._cache;
+    const l = (await RM.db.get('lines', id)) || { id, sales: [], receipt: [] };
+    RM._cache = l;
+    return l;
+  }
+  RM.lines = lines;
+  async function confs(id) { return ((await RM.db.get('confs', id)) || { id, items: {} }).items; }
+
+  function side(ls, keys, filt, isReceipt) {
+    const m = new Map();
+    for (const x of ls) {
+      if (filt && !Object.keys(filt).every(k => x[k] === filt[k])) continue;
+      const kv = keys.map(k => x[k]);
+      const key = kv.join('|');
+      let a = m.get(key);
+      if (!a) { a = { key: kv, a: 0, q: 0, w: 0, n: 0, sname: '', iname: '', dates: new Set(), stores: new Set() }; m.set(key, a); }
+      a.a += x.amt; a.q += x.qty; a.w += x.wt; a.n++;
+      if (x.store_name && (!a.sname || x.store_name > a.sname)) a.sname = x.store_name;
+      const nm = isReceipt ? (x.own_name || x.name) : x.name;
+      if (nm && (!a.iname || nm > a.iname)) a.iname = nm;
+      a.dates.add(x.tdate); if (x.store) a.stores.add(x.store);
+    }
+    return m;
+  }
+  function compare(s, r) {
+    const S = s ? [s.a, s.q, s.w] : [0, 0, 0], R = r ? [r.a, r.q, r.w] : [0, 0, 0];
+    const d = [S[0] - R[0], S[1] - R[1], S[2] - R[2]];
+    const judge = !s ? 'ronly' : !r ? 'sonly' : (d.every(v => v === 0) ? 'ok' : 'diff');
+    const items = ['金額', '数量', '重量'].filter((_, i) => d[i] !== 0);
+    const [label, badge, rowCls] = RM.JUDGE[judge];
+    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' ? `差異あり(${items.join('・')})` : label,
+      judge_short: label, badge, row_cls: rowCls, ok: judge === 'ok' };
+  }
+  RM.compare = compare;
+  function aggregateKeys(l, keys, filt) {
+    const sd = side(l.sales, keys, filt, false), rd = side(l.receipt, keys, filt, true);
+    const all = [...new Set([...sd.keys(), ...rd.keys()])].sort();
+    return all.map(k => { const s = sd.get(k), r = rd.get(k); return Object.assign(compare(s, r), { key: (s || r).key, key_str: k, srow: s, rrow: r }); });
+  }
+  const md = set => [...set].sort().map(d => d.slice(5).replace('-', '/')).join(',');
+
+  RM.aggregate = async (id, view) => {
+    const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
+    const rows = aggregateKeys(l, v.keys);
+    for (const row of rows) {
+      const k = row.key, s = row.srow, r = row.rrow;
+      const sname = (s && s.sname) || (r && r.sname) || '';
+      if (view === 'day') { row.k1 = fmtDate(k[0]); row.k2 = ''; }
+      else if (view === 'store') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${sname}`.trim(); }
+      else if (view === 'item') { row.k1 = fmtDate(k[0]); row.k2 = `${k[1]} ${(s && s.iname) || (r && r.iname) || ''}`.trim(); }
+      else {
+        const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
+        const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
+        const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
+        const st = stores.length === 1 ? `${stores[0]} ${sname}`.trim() : stores.join('、');
+        row.k1 = k[0]; row.k2 = [dates, st].filter(Boolean).join(' ・ ');
+      }
+      const c = cf[view + '|' + row.key_str];
+      row.checked = !!(c && c.checked); row.comment = c ? c.comment : ''; row.updated_at = c ? c.updated_at : '';
+    }
+    return rows;
+  };
+  RM.totals = async id => {
+    const l = await lines(id);
+    const sum = ls => ls.length ? { a: ls.reduce((t, x) => t + x.amt, 0), q: ls.reduce((t, x) => t + x.qty, 0), w: ls.reduce((t, x) => t + x.wt, 0) } : null;
+    const s = sum(l.sales), r = sum(l.receipt);
+    const res = compare(s, r);
+    res.s = res.s || [0, 0, 0]; res.r = res.r || [0, 0, 0];
+    res.s_rows = l.sales.length; res.r_rows = l.receipt.length;
+    return res;
+  };
+  RM.warnings = async id => (await lines(id)).receipt.filter(x => x.conv_status !== 'ok')
+    .sort((a, b) => (a.tdate + a.order_no + String(a.row_no).padStart(9, '0')).localeCompare(b.tdate + b.order_no + String(b.row_no).padStart(9, '0')));
+  RM.counts = async id => {
+    const l = await lines(id), out = {};
+    for (const [k, v] of Object.entries(RM.VIEWS)) out[k] = aggregateKeys(l, v.keys).filter(r => !r.ok).length;
+    out.warn = (await RM.warnings(id)).length;
+    return out;
+  };
+  RM.refreshSummary = async id => {
+    const m = await RM.db.get('matches', id);
+    if (!m) return;
+    const t = await RM.totals(id), diff = (await RM.aggregate(id, 'slip')).filter(r => !r.ok);
+    Object.assign(m, { total_judge: t.judge, total_diff_amt: t.d[0], slip_diff_rows: diff.length, unchecked_rows: diff.filter(r => !r.checked).length });
+    await RM.db.put('matches', m);
+  };
+  RM.keyFilter = (view, keyStr) => {
+    const keys = RM.VIEWS[view].keys, vals = keyStr.split('|');
+    if (vals.length !== keys.length) throw new Error('キーが不正です');
+    return Object.fromEntries(keys.map((k, i) => [k, vals[i]]));
+  };
+  RM.detail = async (id, view, keyStr) => {
+    const filt = RM.keyFilter(view, keyStr), l = await lines(id);
+    const row = (await RM.aggregate(id, view)).find(r => r.key_str === keyStr) || null;
+    const match = x => Object.keys(filt).every(k => x[k] === filt[k]);
+    const ord = (a, b) => (a.tdate + a.order_no + String(a.row_no).padStart(9, '0')).localeCompare(b.tdate + b.order_no + String(b.row_no).padStart(9, '0'));
+    const products = aggregateKeys(l, ['own_code'], filt).map(p => Object.assign(p, { name: (p.srow && p.srow.iname) || (p.rrow && p.rrow.iname) || '' }));
+    return { row, sales: l.sales.filter(match).sort(ord), receipt: l.receipt.filter(match).sort(ord), products };
+  };
+  RM.setConfirmation = async (id, view, keyStr, checked, comment) => {
+    if (!RM.VIEWS[view]) throw new Error('切り口が不正です');
+    RM.keyFilter(view, keyStr);
+    const rec = (await RM.db.get('confs', id)) || { id, items: {} };
+    const ts = now();
+    rec.items[view + '|' + keyStr] = { checked: !!checked, comment: String(comment).slice(0, 1000), updated_at: ts };
+    await RM.db.put('confs', rec);
+    if (view === 'slip') await RM.refreshSummary(id);
+    return ts;
+  };
+
+  // ================================================================ Excelレポート
+  RM.reportFileName = m => {
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    return `受領照合_${m.cust}_${m.date_from.replace(/-/g, '')}-${m.date_to.replace(/-/g, '')}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.xlsx`;
+  };
+  RM.buildReport = async id => {
+    const m = await RM.getMatch(id), t = await RM.totals(id), cnt = await RM.counts(id);
+    const st = RM.xlStyle, FILL = { diff: 1, sonly: 2, ronly: 3 };
+    const H = s => ({ v: s, s: st(0, 0, 1) }), B = s => ({ v: s, s: st(0, 0, 2) }), P = v => ({ v, s: st(0, 0, 4) });
+    const C = (v, fill = 0, fmt = 0) => ({ v, s: st(fill, fmt, 0) });
+    const sheets = [];
+    const sum = [[{ v: '受領照合レポート', s: st(0, 0, 3) }], [],
+      [B('販売先'), P(`${m.cust} ${m.cust_name || ''}`.trim())],
+      [B('期間(取引日付)'), P(`${fmtDate(m.date_from)} 〜 ${fmtDate(m.date_to)}`)],
+      [B('売上データ'), P(`${m.sales_file}(${t.s_rows.toLocaleString()}行)`)],
+      [B('受領データ'), P(`${m.receipt_file}(${t.r_rows.toLocaleString()}行・${m.layout_name})`)],
+      [B('照合日時'), P(m.matched_at || '')], [B('出力日時'), P(now())], [],
+      [B('合計の判定'), { v: RM.JUDGE[t.judge][0], s: st(FILL[t.judge] || 0, 0, 0) }],
+      [H(''), H('金額(税抜)'), H('数量'), H('重量(kg)')]];
+    [['売上(自社)', t.s], ['受領(得意先)', t.r], ['差異(売上−受領)', t.d]].forEach(([lb, v]) => sum.push([C(lb), C(v[0], 0, 1), C(v[1] / 1000, 0, 2), C(v[2] / 1000, 0, 3)]));
+    sum.push([], [H('切り口'), H('不一致の件数')]);
+    for (const [k, v] of Object.entries(RM.VIEWS)) sum.push([C(v.label), C(cnt[k])]);
+    sum.push([C('変換警告'), C(cnt.warn)]);
+    sheets.push({ name: 'サマリ', widths: [22, 40, 14, 14], rows: sum });
+    for (const [view, v] of Object.entries(RM.VIEWS)) {
+      const head = [v.k1].concat(v.k2 ? [v.k2] : [], ['売上 金額', '売上 数量', '売上 重量', '受領 金額', '受領 数量', '受領 重量', '差異 金額', '差異 数量', '差異 重量', '判定', '確認済', 'コメント', '確認更新日時']);
+      const rows = [head.map(H)];
+      for (const r of await RM.aggregate(id, view)) {
+        const f = FILL[r.judge] || 0, out = [C(r.k1, f)];
+        if (v.k2) out.push(C(r.k2, f));
+        for (const tr of [r.s, r.r]) {
+          if (tr) out.push(C(tr[0], f, 1), C(tr[1] / 1000, f, 2), C(tr[2] / 1000, f, 3));
+          else out.push(C(null, f), C(null, f), C(null, f));
+        }
+        out.push(C(r.d[0], f, 1), C(r.d[1] / 1000, f, 2), C(r.d[2] / 1000, f, 3), C(r.judge_label, f), C(r.checked ? '✓' : '', f), C(r.comment, f), C(r.updated_at, f));
+        rows.push(out);
+      }
+      sheets.push({ name: v.label.replace('伝票番号別', '伝票別'), freeze: true, filter: true, rows,
+        widths: [16].concat(v.k2 ? [34] : [], [13, 10, 11, 13, 10, 11, 13, 10, 11, 20, 8, 40, 17]) });
+    }
+    const wrows = [['種別', '取引日付', '相手先注文番号', '店舗', '相手先商品コード', '商品名(受領)', '採用した自社商品コード', '備考', '受領 金額', '受領 数量', '受領 重量', '受領ファイル行'].map(H)];
+    for (const w of await RM.warnings(id)) {
+      const f = w.conv_status === 'none' ? 3 : 1;
+      wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(w.store, f), C(w.partner_code, f), C(w.name, f),
+        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.amt, f, 1), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.row_no, f)]);
+    }
+    sheets.push({ name: '変換警告', freeze: true, filter: true, rows: wrows, widths: [10, 12, 16, 14, 18, 28, 22, 50, 12, 10, 11, 12] });
+    return RM.writeXlsx(sheets);
+  };
+
+  // ================================================================ バックアップ
+  RM.exportBackup = async () => {
+    const data = { app: 'receipt-matcher', version: 1, exported_at: now(), stores: {} };
+    for (const s of RM.STORE_NAMES) data.stores[s] = await RM.db.all(s);
+    return new Blob([JSON.stringify(data)], { type: 'application/json' });
+  };
+  RM.importBackup = async textData => {
+    let data;
+    try { data = JSON.parse(textData); } catch (e) { throw new ReadError('バックアップファイルを読めません。'); }
+    if (!data || data.app !== 'receipt-matcher' || !data.stores) throw new ReadError('受領照合のバックアップファイルではありません。');
+    for (const s of RM.STORE_NAMES) {
+      await RM.db.clear(s);
+      for (const v of data.stores[s] || []) await RM.db.put(s, v);
+    }
+    RM._cache = null;
+    return data.exported_at;
+  };
+})(globalThis.RM = globalThis.RM || {});
+
+/* 画面(A案デザイン)。ハッシュ(#/...)で画面を切り替える1ページ構成。 */
+(function (RM) {
+  'use strict';
+  const { fAmt, fQty, fWt, signed, fmtDate, code } = RM;
+  const $ = s => document.querySelector(s);
+  const h = v => String(v === null || v === undefined ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const PAGE_ROWS = 500;
+  let flash = null;   // {msg|err}
+  let draft = null;   // 取込済み・未確定の照合
+
+  // ---------------------------------------------------------------- 共通
+  function go(path, msg) { if (msg) flash = msg; if (location.hash === '#' + path) render(); else location.hash = path; }
+  function parseHash() {
+    const raw = location.hash.replace(/^#/, '') || '/';
+    const [p, q] = raw.split('?');
+    return { path: p, q: new URLSearchParams(q || '') };
+  }
+  const qs = o => { const u = new URLSearchParams(); for (const [k, v] of Object.entries(o)) if (v !== '' && v !== null && v !== undefined && v !== false) u.set(k, v); const s = u.toString(); return s ? '?' + s : ''; };
+  function busy(on, text) {
+    const o = $('#busy');
+    o.hidden = !on;
+    if (text) $('#busy-text').textContent = text;
+  }
+  async function readFile(input) {
+    const f = input && input.files && input.files[0];
+    if (!f) return null;
+    return { name: f.name, buf: new Uint8Array(await f.arrayBuffer()) };
+  }
+  // 保存: Edge/Chrome の「名前を付けて保存」ダイアログを使う(file:// ではダウンロード名の指定が効かないため)
+  const SAVE_TYPES = { xlsx: { description: 'Excel ブック', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } },
+    json: { description: 'バックアップ', accept: { 'application/json': ['.json'] } } };
+  async function saveFile(name, kind, produce) {
+    let handle = null;
+    if (window.showSaveFilePicker) {
+      try { handle = await window.showSaveFilePicker({ suggestedName: name, types: [SAVE_TYPES[kind]] }); }
+      catch (e) { if (e && e.name === 'AbortError') return false; handle = null; }
+    }
+    const blob = await produce();
+    if (handle) {
+      const w = await handle.createWritable();
+      await w.write(blob); await w.close();
+      return true;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+    return true;
+  }
+  const dcell = (fn, v) => `<span class="${v === 0 ? 'zero' : v < 0 ? 'neg' : 'pos'}">${h(signed(fn, v))}</span>`;
+  const dt = s => h((s || '').replace(/-/g, '/'));
+  const dropBox = (name, label, accept) => `<label class="drop">${h(label)}<input type="file" name="${name}" accept="${accept}" required><span class="fname"></span></label>`;
+  const opt = (v, label, sel) => `<option value="${h(v)}"${sel ? ' selected' : ''}>${h(label)}</option>`;
+
+  async function customers() {
+    const m = new Map();
+    for (const [c, n] of await RM.ledgerCustomers()) m.set(c, n || '');
+    for (const a of await RM.assignments()) if (!m.has(a.cust)) m.set(a.cust, a.cust_name || '');
+    for (const x of await RM.listMatches()) if (!m.has(x.cust)) m.set(x.cust, x.cust_name || '');
+    return [...m.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  }
+  function pager(page, pages, total, href) {
+    if (pages <= 1) return '';
+    return `<div class="row pager" style="margin-top:8px"><span class="sub">${fAmt(total)}行中 ${fAmt((page - 1) * PAGE_ROWS + 1)}〜${fAmt(Math.min(page * PAGE_ROWS, total))}行目</span><div class="right">
+      ${page > 1 ? `<a class="btn btn-s" href="${href(page - 1)}">前へ</a>` : ''}<span>${page} / ${pages}</span>${page < pages ? `<a class="btn btn-s" href="${href(page + 1)}">次へ</a>` : ''}</div></div>`;
+  }
+
+  // ---------------------------------------------------------------- 照合一覧
+  async function pageList(q) {
+    const f = { cust: q.get('cust') || '', dateFrom: '', dateTo: '', unchecked: q.get('unchecked') === '1' };
+    try { if (q.get('from')) f.dateFrom = RM.date(q.get('from')); if (q.get('to')) f.dateTo = RM.date(q.get('to')); } catch (_) { /* 無効な日付は無視 */ }
+    const rows = await RM.listMatches(f), all = await RM.listMatches();
+    const meta = await RM.ledgerMeta(), lays = await RM.layouts(), asg = await RM.assignments();
+    const unc = all.reduce((t, m) => t + (m.unchecked_rows || 0), 0), uncM = all.filter(m => m.unchecked_rows > 0).length;
+    const custs = await customers();
+    return { nav: 'list', title: '照合一覧', html: `
+<div class="row"><h1>照合一覧</h1><div class="right"><a href="#/new" class="btn btn-p">+ 新規照合</a></div></div>
+<div class="cards">
+  <div class="card stat"><div class="k">販売台帳(最終取込)</div>${meta ? `<div class="v">${dt(meta.imported_at)}</div><div class="d">有効 ${fAmt(meta.loaded_rows)}件(削除区分9を除く)</div>` : '<div class="v warnv">未取込</div><div class="d"><a href="#/ledger">販売台帳を取り込んでください</a></div>'}</div>
+  <div class="card stat"><div class="k">受領レイアウト</div><div class="v">${lays.length}件</div><div class="d">得意先割当 ${asg.length}件</div></div>
+  <div class="card stat"><div class="k">未確認の差異(伝票別)</div><div class="v ${unc ? 'warnv' : ''}">${unc}件</div><div class="d">${uncM}照合にまたがる</div></div>
+</div>
+<section class="card">
+  <form class="filters" data-form="list-filter">
+    <label class="lbl">販売先<select name="cust" class="fld"><option value="">すべて</option>${custs.map(([c, n]) => opt(c, `${c} ${n}`, c === f.cust)).join('')}</select></label>
+    <label class="lbl">期間 From<input class="fld" name="from" value="${h(q.get('from') || '')}" placeholder="YYYY/MM/DD"></label>
+    <label class="lbl">期間 To<input class="fld" name="to" value="${h(q.get('to') || '')}" placeholder="YYYY/MM/DD"></label>
+    <label class="chk"><input type="checkbox" name="unchecked" value="1"${f.unchecked ? ' checked' : ''}> 未確認の差異があるものだけ</label>
+    <button class="btn" type="submit">絞り込み</button>
+  </form>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>販売先</th><th>期間(取引日付)</th><th>照合日時</th><th>合計判定</th><th class="n">合計差異(金額)</th><th class="n">不一致(伝票別)</th><th class="n">未確認</th><th>操作</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      <td>${h(r.cust)} ${h(r.cust_name || '')}</td><td>${fmtDate(r.date_from)}〜${fmtDate(r.date_to)}</td><td>${dt(r.matched_at)}</td>
+      <td><span class="b ${r.total_judge === 'ok' ? 'b-ok' : 'b-diff'}">${r.total_judge === 'ok' ? '一致' : '不一致'}</span></td>
+      <td class="n">${h(signed(fAmt, r.total_diff_amt || 0))}</td><td class="n">${r.slip_diff_rows || 0}</td><td class="n">${r.unchecked_rows || 0}</td>
+      <td><div class="row" style="gap:6px"><a href="#/match/${r.id}" class="btn btn-s">開く</a>
+        <button type="button" class="btn btn-s" data-act="report" data-id="${r.id}">Excel出力</button>
+        <button type="button" class="btn btn-s btn-danger" data-act="delete-match" data-id="${r.id}">削除</button></div></td></tr>`).join('') ||
+      '<tr><td colspan="8" class="zero">照合はまだありません。「新規照合」から始めてください。</td></tr>'}</tbody>
+  </table></div>
+</section>` };
+  }
+
+  // ---------------------------------------------------------------- 新規照合・取込
+  async function pageNew(q) {
+    const parent = q.get('parent') ? await RM.getMatch(+q.get('parent')) : null;
+    const meta = await RM.ledgerMeta(), custs = await customers(), asg = await RM.assignments();
+    const std = (await RM.layouts()).find(l => l.is_standard);
+    const lmap = Object.fromEntries((await RM.layouts()).map(l => [l.id, l.name]));
+    return { nav: 'new', title: parent ? '再取込・再照合' : '新規照合', html: `
+<h1>${parent ? '再取込・再照合' : '新規照合'}</h1>
+${meta ? '' : '<div class="msg msg-warn">販売台帳が未取込です。受領データの商品コードがすべて「変換不可」になります。先に<a href="#/ledger">販売台帳</a>を取り込んでください。</div>'}
+<form data-form="new" style="display:flex;flex-direction:column;gap:18px;max-width:1100px">
+${parent ? `<input type="hidden" name="parent" value="${parent.id}">` : ''}
+<section class="card">
+  <h2><span class="step">1</span>照合条件</h2>
+  <div class="filters">
+    ${parent ? `<div class="lbl">販売先<div class="fld" style="display:flex;align-items:center;min-width:260px">${h(parent.cust)} ${h(parent.cust_name || '')}</div></div>`
+    : `<label class="lbl">販売先コード<input class="fld" name="cust" list="custs" required style="min-width:260px" placeholder="例 20005525" autocomplete="off">
+      <datalist id="custs">${custs.map(([c, n]) => `<option value="${h(c)}">${h(c)} ${h(n)}</option>`).join('')}</datalist></label>`}
+    <label class="lbl">取引日付 From<input class="fld" name="from" required placeholder="YYYY/MM/DD" value="${parent ? fmtDate(parent.date_from) : ''}" style="width:150px"></label>
+    <label class="lbl">取引日付 To<input class="fld" name="to" required placeholder="YYYY/MM/DD" value="${parent ? fmtDate(parent.date_to) : ''}" style="width:150px"></label>
+  </div>
+  <div class="sub">使用する受領レイアウト:販売先に割当があればそのレイアウト、なければ <strong>${h(std ? std.name : '(標準未設定)')}</strong>。
+  ${asg.length ? '割当のある販売先:' + asg.map(a => `${h(a.cust)}→${h(lmap[a.layout_id] || '')}`).join('、') : ''}</div>
+  ${parent ? '<div class="sub">確定すると、この照合の明細を新しいファイルの内容で置き換えます。確認済み・コメントは同じキーの行に引き継がれます。</div>' : ''}
+</section>
+<section class="card">
+  <h2><span class="step">2</span>ファイル取込</h2>
+  <div class="grid2">
+    <div style="display:flex;flex-direction:column;gap:8px"><strong>自社売上データ(Excel .xlsx)</strong>${dropBox('sales', 'ここにファイルをドラッグ&ドロップ、またはファイルを選択', '.xlsx')}</div>
+    <div style="display:flex;flex-direction:column;gap:8px"><strong>受領データ(Excel .xlsx / CSV)</strong>${dropBox('receipt', 'ここにファイルをドラッグ&ドロップ、またはファイルを選択', '.xlsx,.csv,.txt')}</div>
+  </div>
+  <div class="sub">次の画面で、取込件数・エラー・変換警告を確認してから照合を確定します。ファイルはこのPCの中だけで読み込まれます。</div>
+</section>
+<div class="row"><div class="right"><a href="${parent ? '#/match/' + parent.id : '#/'}" class="btn">キャンセル</a><button type="submit" class="btn btn-p">取り込んで確認</button></div></div>
+</form>` };
+  }
+
+  function pageReview() {
+    if (!draft) return { redirect: '/new' };
+    const m = draft, s = m.stats.sales, r = m.stats.receipt, st = m.stats;
+    const kv = x => `<div class="kv"><div>データ行</div><div>${fAmt(x.total)}行</div><div>照合対象</div><div><strong>${fAmt(x.target)}行</strong></div>
+      <div>対象外</div><div>他の販売先 ${fAmt(x.other_cust)}行 / 期間外 ${fAmt(x.out_of_period)}行</div>
+      <div>読み飛ばし</div><div>${fAmt(x.skipped_blank)}行(空行・合計行など)</div><div>エラー</div><div>${x.error ? `<span class="neg">${x.error}行</span>` : 'なし'}</div></div>`;
+    return { nav: 'new', title: '取込結果の確認', html: `
+<h1>取込結果の確認</h1>
+<div class="info">
+  <div><div class="k">販売先</div><div class="v">${h(m.cust)} ${h(m.cust_name)}</div></div>
+  <div><div class="k">期間(取引日付)</div><div class="v">${fmtDate(m.date_from)}〜${fmtDate(m.date_to)}</div></div>
+  <div><div class="k">受領レイアウト</div><div class="v">${h(m.layout_name)}${st.layout_assigned ? '' : '(割当なし→標準)'}</div></div>
+  ${m.parent_id ? '<div><div class="k">再取込</div><div class="v">既存の照合を置き換えます</div></div>' : ''}
+</div>
+<div class="grid2">
+  <section class="card"><h2>自社売上データ:${h(m.sales_file)}</h2><div class="msg msg-ok">レイアウト検査:OK(188列・見出し一致)</div>${kv(s)}</section>
+  <section class="card"><h2>受領データ:${h(m.receipt_file)}</h2>
+    ${r.conv_none || r.conv_multi ? `<div class="msg msg-warn">商品コード:変換不可 ${r.conv_none}件、複数候補 ${r.conv_multi}件(照合後に「変換警告」で確認できます)</div>` : '<div class="msg msg-ok">商品コード:すべて販売台帳で変換できました</div>'}
+    ${st.ledger_empty ? '<div class="msg msg-warn">販売台帳が未取込です。</div>' : ''}${kv(r)}</section>
+</div>
+<section class="card"><h2>取込エラー</h2>
+${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除かれます。${st.error_count > m.errors.length ? `(先頭 ${m.errors.length}件を表示 / 全 ${st.error_count}件)` : ''}</div>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>ファイル</th><th class="n">行</th><th>内容</th></tr></thead><tbody>
+  ${m.errors.map(e => `<tr><td>${h(e.file)}</td><td class="n">${e.row}</td><td>${h(e.msg)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="sub">エラー行はありません。</div>'}
+</section>
+<div class="row"><div class="right"><button type="button" class="btn" data-act="review-cancel">中止</button>
+  <button type="button" class="btn btn-p" data-act="review-confirm">${st.error_count ? 'エラー行を除いて照合を実行' : '照合を実行'}</button></div></div>` };
+  }
+
+  // ---------------------------------------------------------------- 照合結果
+  async function pageResult(id, q) {
+    const m = await RM.getMatch(id);
+    if (!m) return { redirect: '/', flash: { err: '照合が見つかりません。' } };
+    let view = q.get('view') || 'day';
+    if (!RM.VIEWS[view] && view !== 'warn') view = 'day';
+    const onlyDiff = q.get('only_diff') === '1', onlyUnc = q.get('only_unc') === '1', kw = (q.get('q') || '').trim();
+    const t = await RM.totals(id), cnt = await RM.counts(id);
+    let rows = [], warns = [];
+    if (view === 'warn') warns = await RM.warnings(id);
+    else {
+      rows = await RM.aggregate(id, view);
+      if (onlyDiff) rows = rows.filter(r => !r.ok);
+      if (onlyUnc) rows = rows.filter(r => !r.ok && !r.checked);
+      if (kw) rows = rows.filter(r => r.k1.includes(kw) || r.k2.includes(kw) || r.comment.includes(kw));
+    }
+    const total = view === 'warn' ? warns.length : rows.length;
+    const pages = Math.max(1, Math.ceil(total / PAGE_ROWS));
+    const page = Math.min(Math.max(1, +(q.get('page') || 1)), pages);
+    rows = rows.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS);
+    warns = warns.slice((page - 1) * PAGE_ROWS, page * PAGE_ROWS);
+    const base = '#/match/' + id;
+    const href = p => base + qs({ view, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '', q: kw, page: p });
+    const V = RM.VIEWS[view];
+    const tabs = Object.entries(RM.VIEWS).map(([k, v]) => `<a class="tab ${view === k ? 'on' : ''}" href="${base + qs({ view: k, only_diff: onlyDiff ? 1 : '', only_unc: onlyUnc ? 1 : '' })}">${v.label} <span class="cnt ${cnt[k] ? 'has' : ''}">${cnt[k]}</span></a>`).join('') +
+      `<a class="tab ${view === 'warn' ? 'on' : ''}" href="${base}?view=warn">変換警告 <span class="cnt ${cnt.warn ? 'has' : ''}">${cnt.warn}</span></a>`;
+    let body;
+    if (view !== 'warn') {
+      body = `
+  <form class="bar" data-form="result-filter" data-base="${base}" data-view="${view}">
+    <label class="chk"><input type="checkbox" name="only_diff" value="1" class="js-autosubmit"${onlyDiff ? ' checked' : ''}> 不一致のみ表示</label>
+    <label class="chk"><input type="checkbox" name="only_unc" value="1" class="js-autosubmit"${onlyUnc ? ' checked' : ''}> 未確認のみ表示</label>
+    <label class="chk">検索 <input type="search" name="q" value="${h(kw)}" class="cin" placeholder="日付・番号・商品・コメント"></label>
+    <button type="submit" class="btn btn-s">表示</button>
+    <span class="legend"><span class="b b-diff">差異あり</span><span class="b b-s">自社のみ</span><span class="b b-r">受領のみ</span><span class="b b-ok">一致</span></span>
+  </form>
+  <div class="inner"><table class="tbl compact">
+    <thead><tr><th>${V.k1}</th>${V.k2 ? `<th>${V.k2}</th>` : ''}
+      <th class="gs n">売上 金額</th><th class="gs n">売上 数量</th><th class="gs n">売上 重量</th>
+      <th class="gr n">受領 金額</th><th class="gr n">受領 数量</th><th class="gr n">受領 重量</th>
+      <th class="gd n">差異 金額</th><th class="gd n">差異 数量</th><th class="gd n">差異 重量</th><th>判定</th><th>確認済</th><th>コメント</th></tr></thead>
+    <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
+      <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.k1)}</a></td>${V.k2 ? `<td>${h(r.k2)}</td>` : ''}
+      ${[r.s, r.r].map(tr => tr ? `<td class="n">${fAmt(tr[0])}</td><td class="n">${fQty(tr[1])}</td><td class="n">${fWt(tr[2])}</td>` : '<td class="n zero">—</td><td class="n zero">—</td><td class="n zero">—</td>').join('')}
+      <td class="n">${dcell(fAmt, r.d[0])}</td><td class="n">${dcell(fQty, r.d[1])}</td><td class="n">${dcell(fWt, r.d[2])}</td>
+      <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>
+      <td style="text-align:center"><input type="checkbox" class="js-check" aria-label="確認済み"${r.checked ? ' checked' : ''}></td>
+      <td class="cm"><input type="text" class="cin js-comment" aria-label="コメント" value="${h(r.comment)}" maxlength="1000"></td></tr>`).join('') ||
+      '<tr><td colspan="15" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>'}</tbody></table>
+    ${pager(page, pages, total, href)}
+    <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。確認済み・コメントは入力すると自動で保存されます。差異 = 売上 − 受領。</p></div>`;
+    } else {
+      body = `<div class="inner" style="padding-top:12px"><table class="tbl compact">
+    <thead><tr><th>種別</th><th>取引日付</th><th>相手先注文番号</th><th>店舗</th><th>相手先商品コード</th><th>商品名(受領)</th><th>採用した自社商品コード</th><th>備考</th><th class="n">受領金額</th><th class="n">受領ファイル行</th></tr></thead>
+    <tbody>${warns.map(w => `<tr><td><span class="b ${w.conv_status === 'none' ? 'b-r' : 'b-diff'}">${w.conv_status === 'none' ? '変換不可' : '複数候補'}</span></td>
+      <td>${fmtDate(w.tdate)}</td><td>${h(w.order_no)}</td><td>${h(w.store)} ${h(w.store_name)}</td><td>${h(w.partner_code)}</td><td>${h(w.name)}</td>
+      <td>${w.conv_status === 'none' ? '—' : h(w.own_code)}</td><td class="wrap">${h(w.conv_note)}</td><td class="n">${fAmt(w.amt)}</td><td class="n">${w.row_no}</td></tr>`).join('') ||
+      '<tr><td colspan="10" class="zero" style="text-align:center;padding:24px">変換警告はありません。</td></tr>'}</tbody></table>
+    ${pager(page, pages, total, href)}
+    <p class="note" style="margin-top:8px">変換不可の行は、相手先商品コードの頭に「[未変換]」を付けて照合しています。販売台帳に登録してから「再取込・再照合」すると解消します。</p></div>`;
+    }
+    return { nav: 'list', title: '照合結果', html: `
+<div class="row"><div><a href="#/" class="sub">← 照合一覧</a>
+  <h1>照合結果:${h(m.cust)} ${h(m.cust_name || '')} ・ ${fmtDate(m.date_from)}〜${fmtDate(m.date_to)}</h1>
+  <div class="sub">${h(m.sales_file)}(${fAmt(t.s_rows)}行) / ${h(m.receipt_file)}(${fAmt(t.r_rows)}行・${h(m.layout_name)}) ・ 照合日時 ${dt(m.matched_at)}</div></div>
+  <div class="right"><a href="#/new?parent=${id}" class="btn">再取込・再照合</a><button type="button" class="btn btn-p" data-act="report" data-id="${id}">Excelレポート出力</button></div></div>
+<section class="card" aria-label="合計の照合"><div class="row" style="align-items:center;gap:20px">
+  <div style="min-width:140px"><div class="sub">合計の判定</div><span class="b ${t.badge} big">${h(t.judge_label)}</span></div>
+  <div class="tblwrap" style="flex:1 1 560px;border:0"><table class="tbl" style="font-size:14px">
+    <thead><tr><th></th><th class="n">金額(税抜)</th><th class="n">数量</th><th class="n">重量(kg)</th></tr></thead><tbody>
+    <tr><td><strong>売上(自社)</strong></td><td class="n">${fAmt(t.s[0])}</td><td class="n">${fQty(t.s[1])}</td><td class="n">${fWt(t.s[2])}</td></tr>
+    <tr><td><strong>受領(得意先)</strong></td><td class="n">${fAmt(t.r[0])}</td><td class="n">${fQty(t.r[1])}</td><td class="n">${fWt(t.r[2])}</td></tr>
+    <tr><td><strong>差異(売上−受領)</strong></td><td class="n">${dcell(fAmt, t.d[0])}</td><td class="n">${dcell(fQty, t.d[1])}</td><td class="n">${dcell(fWt, t.d[2])}</td></tr></tbody></table></div></div></section>
+<section class="panel"><nav class="tabs" aria-label="照合の切り口">${tabs}</nav>${body}</section>` };
+  }
+
+  async function pageDetail(id, q) {
+    const m = await RM.getMatch(id), view = q.get('view'), key = q.get('key') || '';
+    if (!m || !RM.VIEWS[view]) return { redirect: '/', flash: { err: '照合が見つかりません。' } };
+    let d;
+    try { d = await RM.detail(id, view, key); } catch (_) { return { redirect: '/match/' + id, flash: { err: '明細のキーが不正です。' } }; }
+    if (!d.row) return { redirect: '/match/' + id + '?view=' + view, flash: { err: '該当する行がありません。' } };
+    const r = d.row, V = RM.VIEWS[view], base = '#/match/' + id;
+    const tbl = (title, color, lines, isR, tot) => `<section class="card"><h2 style="color:${color}">${title}${lines.length}行</h2><div class="tblwrap"><table class="tbl">
+      <thead><tr><th>取引日付</th><th>注文番号</th><th>店舗</th>${isR ? '<th>相手先商品コード</th><th>変換後の自社商品コード</th><th>商品名(受領)</th>' : '<th>売上伝票番号</th><th>商品コード</th><th>商品名</th>'}<th class="n">数量</th><th class="n">重量</th><th class="n">金額</th></tr></thead>
+      <tbody>${lines.map(x => `<tr><td>${fmtDate(x.tdate)}</td><td>${h(x.order_no)}</td><td>${h(x.store)}</td>${isR
+        ? `<td>${h(x.partner_code)}</td><td>${h(x.own_code)} ${x.conv_status === 'ok' ? `<span class="b b-ok" title="${h(x.conv_note)}">台帳で変換</span>` : x.conv_status === 'multi' ? `<span class="b b-diff" title="${h(x.conv_note)}">複数候補</span>` : '<span class="b b-r">変換不可</span>'}</td><td>${h(x.name)}</td>`
+        : `<td>${h(x.slip_no)}</td><td>${h(x.own_code)}</td><td>${h(x.name)}</td>`}
+        <td class="n">${fQty(x.qty)}</td><td class="n">${fWt(x.wt)}</td><td class="n">${fAmt(x.amt)}</td></tr>`).join('') || `<tr><td colspan="9" class="zero">${isR ? '受領' : '売上'}側に明細はありません</td></tr>`}</tbody>
+      ${lines.length ? `<tfoot><tr><td colspan="6">計</td><td class="n">${fQty(tot[1])}</td><td class="n">${fWt(tot[2])}</td><td class="n">${fAmt(tot[0])}</td></tr></tfoot>` : ''}</table></div></section>`;
+    return { nav: 'list', title: '明細', html: `
+<div><a href="${base}?view=${view}" class="sub">← 照合結果(${V.label})に戻る</a><h1>明細:${V.k1} ${h(r.k1)}${r.k2 ? ' ・ ' + h(r.k2) : ''}</h1></div>
+<div class="info"><div><div class="k">販売先</div><div class="v">${h(m.cust)} ${h(m.cust_name || '')}</div></div>
+  <div><div class="k">判定</div><span class="b ${r.badge}">${h(r.judge_label)}</span></div>
+  <div><div class="k">差異(売上−受領)</div><div class="v">金額 ${dcell(fAmt, r.d[0])} / 数量 ${dcell(fQty, r.d[1])} / 重量 ${dcell(fWt, r.d[2])}</div></div></div>
+<div style="display:flex;flex-direction:column;gap:16px">${tbl('売上明細(自社)', 'var(--primary-d)', d.sales, false, r.s)}${tbl('受領明細(得意先)', '#7A3A12', d.receipt, true, r.r)}</div>
+${view !== 'item' ? `<section class="card"><h2>商品別の比較</h2><div class="tblwrap"><table class="tbl">
+  <thead><tr><th>自社商品コード</th><th>商品名</th><th class="n">売上 金額</th><th class="n">受領 金額</th><th class="n">差異 金額</th><th class="n">差異 数量</th><th class="n">差異 重量</th><th>判定</th></tr></thead>
+  <tbody>${d.products.map(p => `<tr class="${p.row_cls}"><td>${h(p.key[0])}</td><td>${h(p.name)}</td><td class="n">${p.s ? fAmt(p.s[0]) : '—'}</td><td class="n">${p.r ? fAmt(p.r[0]) : '—'}</td>
+    <td class="n">${dcell(fAmt, p.d[0])}</td><td class="n">${dcell(fQty, p.d[1])}</td><td class="n">${dcell(fWt, p.d[2])}</td><td><span class="b ${p.badge}">${h(p.judge_label)}</span></td></tr>`).join('')}</tbody></table></div></section>` : ''}
+<section class="card"><h2>確認状況</h2>
+  <form data-form="detail-confirm" data-id="${id}" data-view="${view}" data-key="${h(key)}" style="display:flex;flex-direction:column;gap:10px">
+    <label class="chk" style="font-size:14px"><input type="checkbox" name="checked" value="1"${r.checked ? ' checked' : ''}> 確認済みにする</label>
+    <label class="lbl">コメント<textarea name="comment" rows="3" class="fld" maxlength="1000" placeholder="差異の理由や対応を記入">${h(r.comment)}</textarea></label>
+    <div class="sub">最終更新:${r.updated_at ? dt(r.updated_at) : '—'}</div>
+    <div class="row"><button type="submit" class="btn btn-p">保存</button><a href="${base}?view=${view}" class="btn">戻る</a></div>
+  </form></section>` };
+  }
+
+  // ---------------------------------------------------------------- 販売台帳
+  async function pageLedger(q) {
+    const meta = await RM.ledgerMeta();
+    let rows = await RM.ledgerRows();
+    const dupMap = RM.ledgerDupKeys(rows), cand = r => dupMap.get(r.cust + '|' + r.store + '|' + r.partner_code).size;
+    const dupCount = [...dupMap.values()].filter(s => s.size > 1).length;
+    const custs = await RM.ledgerCustomers();
+    const cust = q.get('cust') || '', kw = (q.get('q') || '').trim(), dup = q.get('dup') === '1';
+    if (cust) rows = rows.filter(r => r.cust === cust);
+    if (kw) rows = rows.filter(r => r.partner_code.includes(kw) || r.own_code.includes(kw) || r.own_name.includes(kw));
+    if (dup) rows = rows.filter(r => cand(r) > 1);
+    rows.sort((a, b) => (a.cust + '|' + a.partner_code + '|' + a.store).localeCompare(b.cust + '|' + b.partner_code + '|' + b.store));
+    const per = 100, total = rows.length, pages = Math.max(1, Math.ceil(total / per)), page = Math.min(Math.max(1, +(q.get('page') || 1)), pages);
+    const view = rows.slice((page - 1) * per, page * per);
+    const href = p => '#/ledger' + qs({ cust, q: kw, dup: dup ? 1 : '', page: p });
+    return { nav: 'ledger', title: '販売台帳', html: `
+<h1>販売台帳</h1>
+<div class="grid2">
+  <section class="card"><h2>取込(全件入れ替え)</h2>
+    <form data-form="ledger" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', '販売台帳のExcelファイル(.xlsx)をここにドラッグ&ドロップ、またはファイルを選択', '.xlsx')}
+      <div class="row"><span class="sub">取り込むと現在の台帳はすべて置き換わります。削除区分「9」の行は取り込みません。</span><div class="right"><button type="submit" class="btn btn-p">取り込む</button></div></div></form></section>
+  <section class="card"><h2>現在の台帳</h2>${meta ? `<div class="kv">
+    <div>ファイル名</div><div>${h(meta.file_name)}</div><div>取込日時</div><div>${dt(meta.imported_at)}</div>
+    <div>取込件数</div><div>${fAmt(meta.loaded_rows)}件(全 ${fAmt(meta.total_rows)}行、削除区分9 を除外 ${fAmt(meta.deleted_rows)}行${meta.skipped_rows ? `、コード空欄で除外 ${fAmt(meta.skipped_rows)}行` : ''})</div>
+    <div>注意</div><div>${dupCount ? `<span class="b b-diff">キー重複 ${dupCount}件</span> 同じ販売先+店舗+相手先商品コードに自社商品コードが複数あります(照合時は先頭を採用し警告)。` : 'キー重複はありません。'}</div></div>` : '<div class="sub">まだ取り込まれていません。</div>'}</section>
+</div>
+<section class="card">
+  <form class="filters" data-form="ledger-filter"><h2 style="margin-right:auto">台帳の内容</h2>
+    <label class="lbl">販売先<select name="cust" class="fld"><option value="">すべて</option>${custs.map(([c, n]) => opt(c, `${c} ${n}`, c === cust)).join('')}</select></label>
+    <label class="lbl">検索<input class="fld" type="search" name="q" value="${h(kw)}" placeholder="商品コード・商品名" style="width:240px"></label>
+    <label class="chk" style="height:34px"><input type="checkbox" name="dup" value="1"${dup ? ' checked' : ''}> キー重複のみ</label>
+    <button type="submit" class="btn">表示</button></form>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>販売先</th><th>店舗</th><th>販売先商品識別ｺｰﾄﾞ(相手先)</th><th>自社商品コード</th><th>商品略称</th><th>状態</th></tr></thead>
+    <tbody>${view.map(r => `<tr><td>${h(r.cust)} ${h(r.cust_name)}</td><td>${h(r.store)}${r.store === RM.STORE_ANY ? ' 指定なし' : ''}</td><td>${h(r.partner_code)}</td><td>${h(r.own_code)}</td><td>${h(r.own_name)}</td>
+      <td>${cand(r) > 1 ? '<span class="b b-diff">キー重複</span>' : ''}</td></tr>`).join('') || '<tr><td colspan="6" class="zero">該当するデータはありません。</td></tr>'}</tbody></table></div>
+  <div class="row"><span class="sub">${fAmt(total)}件 ・ 検索順:①販売先+店舗+相手先コード → ②販売先+店舗「指定なし」+相手先コード</span>
+    ${pages > 1 ? `<div class="right pager">${page > 1 ? `<a class="btn btn-s" href="${href(page - 1)}">前へ</a>` : ''}<span>${page} / ${pages}</span>${page < pages ? `<a class="btn btn-s" href="${href(page + 1)}">次へ</a>` : ''}</div>` : ''}</div>
+</section>` };
+  }
+
+  // ---------------------------------------------------------------- 受領レイアウト・割当
+  const fileFields = (l, isNew) => `
+    <label class="lbl">レイアウト名<input class="fld" name="name" value="${h(l.name || '')}" required style="width:240px"${isNew ? ' placeholder="例 K社 個別Excel"' : ''}></label>
+    <label class="lbl">形式<select class="fld" name="file_type">${opt('excel', 'Excel(.xlsx)', l.file_type === 'excel')}${opt('csv', 'CSV', l.file_type === 'csv')}</select></label>
+    <label class="lbl js-csv">文字コード<select class="fld" name="encoding">${Object.entries(RM.ENCODINGS).map(([k, v]) => opt(k, v, l.encoding === k)).join('')}</select></label>
+    <label class="lbl js-csv">区切り文字<select class="fld" name="delimiter">${Object.entries(RM.DELIMITERS).map(([k, v]) => opt(k, v, l.delimiter === k)).join('')}</select></label>
+    <label class="lbl js-excel">シート名(空欄=先頭)<input class="fld" name="sheet_name" value="${h(l.sheet_name || '')}" style="width:160px"></label>
+    <label class="lbl">見出し行<input class="fld" type="number" name="header_row" value="${l.header_row || 1}" min="1" style="width:90px"></label>
+    <label class="lbl">データ開始行<input class="fld" type="number" name="data_start_row" value="${l.data_start_row || 2}" min="2" style="width:90px"></label>`;
+
+  async function pageLayouts() {
+    const lays = await RM.layouts(), asg = await RM.assignments(), custs = await RM.ledgerCustomers();
+    const cnt = id => asg.filter(a => a.layout_id === id).length, lname = Object.fromEntries(lays.map(l => [l.id, l.name]));
+    return { nav: 'layouts', title: '受領レイアウト・得意先割当', html: `
+<h1>受領レイアウト・得意先割当</h1>
+<section class="card"><h2>受領レイアウト</h2>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>レイアウト名</th><th>形式</th><th>文字コード</th><th class="n">列数</th><th>見出し行/開始行</th><th class="n">割当得意先</th><th>更新日時</th><th>操作</th></tr></thead>
+  <tbody>${lays.map(l => `<tr><td>${l.is_standard ? '<span class="b b-std">標準</span> ' : ''}${h(l.name)}</td>
+    <td>${l.file_type === 'excel' ? 'Excel' + (l.sheet_name ? `(シート「${h(l.sheet_name)}」)` : '') : `CSV(${h(RM.DELIMITERS[l.delimiter] || l.delimiter)})`}</td>
+    <td>${l.file_type === 'csv' ? h(RM.ENCODINGS[l.encoding] || l.encoding) : '—'}</td><td class="n">${l.columns.length}</td><td>${l.header_row} / ${l.data_start_row}</td>
+    <td class="n">${l.is_standard && !cnt(l.id) ? '(割当なしの全得意先)' : cnt(l.id)}</td><td>${dt(l.updated_at)}</td>
+    <td><div class="row" style="gap:6px"><a href="#/layout/${l.id}" class="btn btn-s">編集</a>${l.is_standard ? '' : `
+      <button type="button" class="btn btn-s" data-act="layout-standard" data-id="${l.id}" data-name="${h(l.name)}">標準にする</button>
+      <button type="button" class="btn btn-s btn-danger" data-act="layout-delete" data-id="${l.id}" data-name="${h(l.name)}">削除</button>`}</div></td></tr>`).join('')}</tbody></table></div>
+  <details><summary class="btn btn-p" style="display:inline-flex;list-style:none">+ 新規(サンプルファイルから作成)</summary>
+    <form data-form="layout-new" style="display:flex;flex-direction:column;gap:12px;margin-top:12px;background:var(--bg);border-radius:6px;padding:14px 16px">
+      <div class="filters">${fileFields({ file_type: 'excel', encoding: 'cp932', delimiter: ',' }, true)}</div>
+      ${dropBox('file', '得意先から受け取った受領データのサンプル(.xlsx / .csv)', '.xlsx,.csv,.txt')}
+      <div><button type="submit" class="btn btn-p">サンプルを読み込む</button></div></form></details>
+  <p class="note">得意先に割り当てられているレイアウトは削除できません(先に割当を解除してください)。</p></section>
+<section class="card"><div class="row"><h2>得意先レイアウト割当</h2><span class="sub">ここに無い販売先は「標準」レイアウトで読み込みます</span></div>
+  <form class="filters" data-form="assign" style="background:var(--bg);border-radius:6px;padding:12px 14px">
+    <label class="lbl">販売先コード<input class="fld" name="cust" list="custs" required placeholder="例 20005530" style="width:170px" autocomplete="off">
+      <datalist id="custs">${custs.map(([c, n]) => `<option value="${h(c)}">${h(c)} ${h(n)}</option>`).join('')}</datalist></label>
+    <label class="lbl">販売先名(空欄なら台帳から)<input class="fld" name="cust_name" style="width:200px"></label>
+    <label class="lbl">レイアウト<select class="fld" name="layout_id">${lays.map(l => opt(l.id, l.name)).join('')}</select></label>
+    <button type="submit" class="btn btn-p">追加・変更</button></form>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>販売先コード</th><th>販売先名</th><th>使用レイアウト</th><th>操作</th></tr></thead>
+    <tbody>${asg.map(a => `<tr><td>${h(a.cust)}</td><td>${h(a.cust_name)}</td><td>${h(lname[a.layout_id] || '')}</td>
+      <td><button type="button" class="btn btn-s btn-danger" data-act="unassign" data-cust="${h(a.cust)}">割当解除</button></td></tr>`).join('') || '<tr><td colspan="4" class="zero">割当はありません(すべて標準レイアウトで読み込みます)。</td></tr>'}</tbody></table></div>
+  <p class="note">割当を変更するときは、同じ販売先コードで「追加・変更」してください。</p></section>` };
+  }
+
+  async function pageLayoutEdit(id, q) {
+    const l = await RM.db.get('layouts', id);
+    if (!l) return { redirect: '/layouts', flash: { err: 'レイアウトが見つかりません。' } };
+    const all = q.get('all') === '1', used = l.columns.filter(c => c.role).map(c => c.role);
+    const problems = RM.validateRoles(l.columns), pv = RM.previewLayout(l), usedRoles = RM.ROLES.filter(r => used.includes(r[0]));
+    return { nav: 'layouts', title: '受領レイアウト編集', html: `
+<div><a href="#/layouts" class="sub">← 受領レイアウト一覧</a><h1>受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class="b b-std">標準</span>' : ''}</h1></div>
+<form data-form="layout-save" data-id="${id}" style="display:flex;flex-direction:column;gap:18px">
+<section class="card"><h2>1. ファイル形式</h2><div class="filters">${fileFields(l, false)}</div>
+  <div class="sub">サンプル:${h(l.sample_file || '(初期登録のため見出しのみ)')}(${l.columns.length}列)</div></section>
+<section class="card"><div class="row"><h2>2. 項目の役割</h2><div class="right"><a class="btn btn-s" href="#/layout/${id}${all ? '' : '?all=1'}">${all ? '役割を設定した列だけ表示' : 'すべての列を表示'}</a></div></div>
+  <div class="row" style="gap:8px;font-size:13px"><span class="sub">必須の役割:</span>${RM.ROLES.filter(r => r[2]).map(([k, lb]) => `<span class="chip ${used.includes(k) ? 'chip-ok' : 'chip-ng'}">${used.includes(k) ? '✓' : '未設定'} ${lb}</span>`).join('')}</div>
+  ${problems.map(p => `<div class="msg msg-err">${h(p)}</div>`).join('')}
+  <div class="tblwrap"><table class="tbl"><thead><tr><th class="n">列</th><th>見出し名</th><th>サンプル値(1行目)</th><th>役割</th><th>日付書式</th></tr></thead><tbody>
+  ${l.columns.filter(c => all || c.role).map(c => `<tr class="${c.role ? 'used' : ''}"><td class="n">${c.col_no}</td><td>${h(c.header)}</td><td>${h((l.sample_rows[0] || [])[c.col_no - 1] || '')}</td>
+    <td><select class="fld fld-s" name="role_${c.col_no}" aria-label="${h(c.header)} の役割" style="width:190px"><option value="">未使用</option>${RM.ROLES.map(([k, lb, req]) => opt(k, lb + (req ? '(必須)' : ''), c.role === k)).join('')}</select></td>
+    <td>${c.role === 'tdate' ? `<select class="fld fld-s" name="fmt_${c.col_no}" aria-label="日付書式">${Object.entries(RM.DATE_FORMATS).map(([k, v]) => opt(k, v, c.date_format === k)).join('')}</select>` : ''}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="note">${all ? '' : '役割を設定していない列は非表示です。別の列に役割を付けるには「すべての列を表示」を押してください。'}販売先コードの役割がない場合は、照合作成時に指定した販売先として扱います。</p></section>
+<div class="row"><div class="right"><a href="#/layouts" class="btn">一覧へ戻る</a><button type="submit" class="btn btn-p">保存</button></div></div>
+</form>
+<section class="card"><h2>3. 変換結果プレビュー(サンプル先頭${pv.length}行)</h2>
+  ${pv.length ? `<div class="tblwrap"><table class="tbl"><thead><tr>${usedRoles.map(r => `<th>${r[1]}</th>`).join('')}</tr></thead>
+    <tbody>${pv.map(p => `<tr>${usedRoles.map(r => `<td>${h(p[r[0]] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">保存後の設定でプレビューします。</p>`
+    : '<div class="sub">サンプルのデータ行がありません。下からサンプルファイルを読み込むとプレビューできます。</div>'}
+  <form data-form="layout-sample" data-id="${id}" class="row">${dropBox('file', '別のサンプルで読み直す(列の構成が変わった場合など)', '.xlsx,.csv,.txt').replace('class="drop"', 'class="drop" style="flex:1 1 360px"')}
+    <button type="submit" class="btn">読み直す</button></form></section>` };
+  }
+
+  // ---------------------------------------------------------------- バックアップ
+  async function pageBackup() {
+    const est = await RM.db.estimate();
+    const ms = await RM.listMatches(), meta = await RM.ledgerMeta();
+    const last = (await RM.db.get('kv', 'last_backup')) || null;
+    return { nav: 'backup', title: 'バックアップ', html: `
+<h1>バックアップ・復元</h1>
+<div class="msg msg-warn">データはこのPCのブラウザ内に保存されています。ブラウザの「閲覧データの削除」で「Cookieとサイトデータ」を消すと、データも消えます。定期的にバックアップしてください。</div>
+<div class="grid2">
+  <section class="card"><h2>バックアップ(ファイルに書き出す)</h2>
+    <div class="kv"><div>照合</div><div>${ms.length}件</div><div>販売台帳</div><div>${meta ? fAmt(meta.loaded_rows) + '件' : '未取込'}</div>
+      <div>使用容量</div><div>${est && est.usage ? (est.usage / 1048576).toFixed(1) + ' MB' : '—'}</div><div>前回のバックアップ</div><div>${last ? dt(last.at) : 'なし'}</div></div>
+    <div><button type="button" class="btn btn-p" data-act="backup">バックアップファイルを保存</button></div>
+    <p class="note">すべてのデータ(販売台帳・レイアウト・割当・照合・確認状況)を1つのファイルに保存します。ファイルには業務データが含まれるため、社内の決められた場所に保管してください。</p></section>
+  <section class="card"><h2>復元(ファイルから読み込む)</h2>
+    <form data-form="restore" style="display:flex;flex-direction:column;gap:10px">${dropBox('file', 'バックアップファイル(.json)をここにドラッグ&ドロップ、またはファイルを選択', '.json')}
+      <div><button type="submit" class="btn btn-danger">復元する</button></div></form>
+    <p class="note">復元すると、現在のデータはすべてバックアップの内容に置き換わります。別のPCへの移行にも使えます。</p></section>
+</div>` };
+  }
+
+  // ---------------------------------------------------------------- ルーティング
+  async function render() {
+    const { path, q } = parseHash();
+    let res;
+    try {
+      let m;
+      if (path === '/' || path === '') res = await pageList(q);
+      else if (path === '/new') res = await pageNew(q);
+      else if (path === '/review') res = pageReview();
+      else if ((m = /^\/match\/(\d+)$/.exec(path))) res = await pageResult(+m[1], q);
+      else if ((m = /^\/match\/(\d+)\/detail$/.exec(path))) res = await pageDetail(+m[1], q);
+      else if (path === '/ledger') res = await pageLedger(q);
+      else if (path === '/layouts') res = await pageLayouts();
+      else if ((m = /^\/layout\/(\d+)$/.exec(path))) res = await pageLayoutEdit(+m[1], q);
+      else if (path === '/backup') res = await pageBackup();
+      else res = { redirect: '/' };
+    } catch (e) {
+      console.error(e);
+      res = { nav: '', title: 'エラー', html: `<div class="msg msg-err">画面を表示できませんでした:${h(e.message)}</div><div><a href="#/" class="btn">照合一覧へ</a></div>` };
+    }
+    if (res.redirect) { if (res.flash) flash = res.flash; location.hash = res.redirect; return; }
+    document.title = res.title + ' - 受領照合';
+    document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.dataset.nav === res.nav));
+    const f = flash; flash = null;
+    $('#view').innerHTML = (f && f.msg ? `<div class="msg msg-ok" role="status">${h(f.msg)}</div>` : '') + (f && f.err ? `<div class="msg msg-err" role="alert">${h(f.err)}</div>` : '') + res.html;
+    window.scrollTo(0, 0);
+    syncFileType();
+  }
+
+  function syncFileType() {
+    document.querySelectorAll('form').forEach(f => {
+      const ft = f.querySelector('select[name=file_type]');
+      if (!ft) return;
+      f.querySelectorAll('.js-csv').forEach(el => { el.style.display = ft.value === 'csv' ? '' : 'none'; });
+      f.querySelectorAll('.js-excel').forEach(el => { el.style.display = ft.value === 'excel' ? '' : 'none'; });
+    });
+  }
+
+  // ---------------------------------------------------------------- 操作
+  async function guarded(fn) {
+    try { await fn(); } catch (e) {
+      busy(false);
+      console.error(e);
+      flash = { err: e instanceof RM.ReadError ? e.message : '処理できませんでした:' + e.message };
+      render();
+    }
+  }
+  const layoutSettings = fd => ({ name: String(fd.get('name') || ''), file_type: String(fd.get('file_type')), encoding: String(fd.get('encoding')),
+    delimiter: String(fd.get('delimiter')), sheet_name: String(fd.get('sheet_name') || ''), header_row: parseInt(fd.get('header_row'), 10), data_start_row: parseInt(fd.get('data_start_row'), 10) });
+
+  const FORMS = {
+    'list-filter': async (f, fd) => go('/' + qs({ cust: fd.get('cust'), from: fd.get('from'), to: fd.get('to'), unchecked: fd.get('unchecked') })),
+    'ledger-filter': async (f, fd) => go('/ledger' + qs({ cust: fd.get('cust'), q: fd.get('q'), dup: fd.get('dup') })),
+    'result-filter': async (f, fd) => go(f.dataset.base.slice(1) + qs({ view: f.dataset.view, only_diff: fd.get('only_diff'), only_unc: fd.get('only_unc'), q: fd.get('q') })),
+    'new': async (f, fd) => {
+      let df, dtt;
+      try { df = RM.date(String(fd.get('from')).trim()); dtt = RM.date(String(fd.get('to')).trim()); } catch (_) { throw new RM.ReadError('期間を YYYY/MM/DD で入力してください。'); }
+      const parentId = fd.get('parent') ? +fd.get('parent') : null;
+      const parent = parentId ? await RM.getMatch(parentId) : null;
+      const s = await readFile(f.querySelector('input[name=sales]')), r = await readFile(f.querySelector('input[name=receipt]'));
+      if (!s || !r) throw new RM.ReadError('売上データと受領データの両方を選択してください。');
+      busy(true, 'ファイルを読み込んでいます…');
+      draft = await RM.stage({ cust: parent ? parent.cust : String(fd.get('cust')), dateFrom: df, dateTo: dtt, salesName: s.name, salesBuf: s.buf,
+        receiptName: r.name, receiptBuf: r.buf, parentId, onProgress: t => busy(true, t) });
+      busy(false);
+      go('/review');
+    },
+    'ledger': async f => {
+      const file = await readFile(f.querySelector('input[name=file]'));
+      if (!file) throw new RM.ReadError('ファイルを選択してください。');
+      if (!confirm('現在の販売台帳をすべて置き換えます。よろしいですか?')) return;
+      busy(true, '販売台帳を読み込んでいます…');
+      const m = await RM.importLedger(file.buf, file.name, n => busy(true, `販売台帳を読み込んでいます…(${n.toLocaleString()}行)`));
+      busy(false);
+      go('/ledger', { msg: `販売台帳を取り込みました(有効 ${fAmt(m.loaded_rows)}件、削除区分9 を除外 ${fAmt(m.deleted_rows)}件${m.skipped_rows ? `、コード空欄で除外 ${fAmt(m.skipped_rows)}件` : ''})。` });
+    },
+    'layout-new': async (f, fd) => {
+      const st = layoutSettings(fd), file = await readFile(f.querySelector('input[name=file]'));
+      if (!file || !st.name.trim()) throw new RM.ReadError('レイアウト名とサンプルファイルを指定してください。');
+      if (!(st.header_row >= 1) || !(st.data_start_row > st.header_row)) throw new RM.ReadError('データ開始行は見出し行より後ろにしてください。');
+      st.name = st.name.trim(); st.sheet_name = st.sheet_name.trim();
+      const id = await RM.createLayoutFromSample(st, file.name, file.buf);
+      go('/layout/' + id, { msg: 'サンプルを読み込みました。各列の役割を設定して保存してください。' });
+    },
+    'layout-save': async (f, fd) => {
+      const id = +f.dataset.id, roles = {}, fmts = {};
+      for (const [k, v] of fd.entries()) {
+        let m;
+        if ((m = /^role_(\d+)$/.exec(k))) roles[+m[1]] = RM.ROLE_LABEL[v] ? String(v) : '';
+        if ((m = /^fmt_(\d+)$/.exec(k))) fmts[+m[1]] = String(v);
+      }
+      const errs = await RM.saveLayout(id, layoutSettings(fd), roles, fmts);
+      if (errs.length) flash = { err: errs.join(' / ') }; else flash = { msg: '保存しました。' };
+      render();
+    },
+    'layout-sample': async f => {
+      const file = await readFile(f.querySelector('input[name=file]'));
+      if (!file) throw new RM.ReadError('ファイルを選択してください。');
+      await RM.reloadSample(+f.dataset.id, file.name, file.buf);
+      flash = { msg: 'サンプルを読み直しました(同じ列・見出しの役割は引き継いでいます)。' };
+      render();
+    },
+    'assign': async (f, fd) => {
+      const cust = code(fd.get('cust'));
+      if (!cust) throw new RM.ReadError('販売先コードを入力してください。');
+      await RM.assign(cust, String(fd.get('cust_name') || ''), +fd.get('layout_id'));
+      flash = { msg: `販売先 ${cust} のレイアウトを設定しました。` };
+      render();
+    },
+    'detail-confirm': async (f, fd) => {
+      await RM.setConfirmation(+f.dataset.id, f.dataset.view, f.dataset.key, fd.get('checked') === '1', String(fd.get('comment') || ''));
+      flash = { msg: '保存しました。' };
+      render();
+    },
+    'restore': async f => {
+      const file = f.querySelector('input[name=file]').files[0];
+      if (!file) throw new RM.ReadError('ファイルを選択してください。');
+      if (!confirm('現在のデータをすべてバックアップの内容に置き換えます。よろしいですか?')) return;
+      busy(true, '復元しています…');
+      const at = await RM.importBackup(await file.text());
+      busy(false);
+      go('/', { msg: `復元しました(バックアップ作成日時 ${(at || '').replace(/-/g, '/')})。` });
+    },
+  };
+
+  const ACTS = {
+    'report': async el => {
+      const id = +el.dataset.id, m = await RM.getMatch(id);
+      const ok = await saveFile(RM.reportFileName(m), 'xlsx', async () => { busy(true, 'Excelレポートを作成しています…'); return RM.buildReport(id); });
+      busy(false);
+      if (ok) { flash = { msg: 'Excelレポートを保存しました。' }; render(); }
+    },
+    'delete-match': async el => { if (confirm('この照合を削除します。よろしいですか?')) { await RM.deleteMatch(+el.dataset.id); flash = { msg: '照合を削除しました。' }; render(); } },
+    'review-cancel': async () => { const p = draft && draft.parent_id; draft = null; go(p ? '/match/' + p : '/', { msg: '取込を中止しました。' }); },
+    'review-confirm': async () => {
+      if (!draft) return go('/new');
+      busy(true, '照合しています…');
+      const id = await RM.confirm(draft);
+      draft = null;
+      busy(false);
+      go('/match/' + id, { msg: '照合しました。' });
+    },
+    'layout-standard': async el => { if (confirm(`「${el.dataset.name}」を標準レイアウトにします。割当のない得意先はこのレイアウトで読み込みます。`)) { await RM.setStandard(+el.dataset.id); flash = { msg: '標準レイアウトを変更しました。' }; render(); } },
+    'layout-delete': async el => {
+      if (!confirm(`「${el.dataset.name}」を削除します。よろしいですか?`)) return;
+      const e = await RM.deleteLayout(+el.dataset.id);
+      flash = e ? { err: e } : { msg: 'レイアウトを削除しました。' };
+      render();
+    },
+    'unassign': async el => { if (confirm(`販売先 ${el.dataset.cust} の割当を解除します。`)) { await RM.unassign(el.dataset.cust); flash = { msg: `販売先 ${el.dataset.cust} の割当を解除しました(標準レイアウトを使用します)。` }; render(); } },
+    'backup': async () => {
+      const d = new Date(), p = n => String(n).padStart(2, '0');
+      const name = `受領照合_バックアップ_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+      const ok = await saveFile(name, 'json', async () => { busy(true, 'バックアップを作成しています…'); return RM.exportBackup(); });
+      busy(false);
+      if (!ok) return;
+      await RM.db.put('kv', { k: 'last_backup', at: RM.now() });
+      flash = { msg: 'バックアップを保存しました。' };
+      render();
+    },
+  };
+
+  async function saveRow(tr) {
+    const cb = tr.querySelector('.js-check'), cm = tr.querySelector('.js-comment');
+    try {
+      await RM.setConfirmation(+tr.dataset.id, tr.dataset.view, tr.dataset.key, cb.checked, cm.value);
+      cm.classList.remove('err'); cm.classList.add('saved'); setTimeout(() => cm.classList.remove('saved'), 1200);
+    } catch (e) { cm.classList.add('err'); alert('保存できませんでした:' + e.message); }
+  }
+
+  function bind() {
+    document.addEventListener('submit', e => {
+      const f = e.target.closest('form[data-form]');
+      if (!f) return;
+      e.preventDefault();
+      const fn = FORMS[f.dataset.form];
+      if (fn) guarded(() => fn(f, new FormData(f)));
+    });
+    document.addEventListener('click', e => {
+      const el = e.target.closest('[data-act]');
+      if (el && ACTS[el.dataset.act]) { e.preventDefault(); guarded(() => ACTS[el.dataset.act](el)); }
+    });
+    document.addEventListener('change', e => {
+      const t = e.target;
+      if (t.matches('.js-check') || t.matches('.js-comment')) { const tr = t.closest('tr.js-conf'); if (tr) saveRow(tr); }
+      if (t.matches('.js-autosubmit')) t.form.requestSubmit();
+      if (t.matches('select[name=file_type]')) syncFileType();
+      if (t.matches('.drop input[type=file]')) { const n = t.closest('.drop').querySelector('.fname'); if (n) n.textContent = t.files.length ? '選択中: ' + t.files[0].name : ''; }
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.js-comment')) { e.preventDefault(); e.target.blur(); } });
+    ['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest && e.target.closest('.drop'); if (d) { e.preventDefault(); d.classList.add('over'); } }));
+    ['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest && e.target.closest('.drop'); if (d) { e.preventDefault(); d.classList.remove('over'); } }));
+    document.addEventListener('drop', e => {
+      const d = e.target.closest && e.target.closest('.drop');
+      if (!d) { e.preventDefault(); return; }  // 枠の外にファイルを落としてもブラウザでファイルを開かない
+      const inp = d.querySelector('input[type=file]');
+      if (e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; inp.dispatchEvent(new Event('change', { bubbles: true })); }
+    });
+    document.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('hashchange', render);
+  }
+
+  async function start() {
+    if (!window.indexedDB || !window.DecompressionStream || !window.CompressionStream || !window.TextDecoderStream) {
+      $('#view').innerHTML = '<div class="msg msg-err">このブラウザでは動作しません。Microsoft Edge または Google Chrome の最新版で開いてください。</div>';
+      return;
+    }
+    try {
+      RM.db = await RM.IdbStore.open();
+    } catch (e) {
+      $('#view').innerHTML = `<div class="msg msg-err">ブラウザにデータを保存できません(${h(e.message)})。InPrivate / シークレットウィンドウでは使えません。通常のウィンドウで開いてください。</div>`;
+      return;
+    }
+    try { if (navigator.storage && navigator.storage.persist) await navigator.storage.persist(); } catch (_) { /* noop */ }
+    await RM.seed();
+    bind();
+    render();
+  }
+  document.addEventListener('DOMContentLoaded', start);
+})(globalThis.RM = globalThis.RM || {});
+
+</script>
+</body>
+</html>
