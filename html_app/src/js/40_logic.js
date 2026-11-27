@@ -392,11 +392,16 @@
 
   RM.aggregate = async (id, view) => {
     const v = RM.VIEWS[view], l = await lines(id), cf = await confs(id);
-    const m = await RM.db.get('matches', id), sn = await storeNames(m ? m.cust : '');
+    const m = await RM.db.get('matches', id), led = await storeNames(m ? m.cust : '');
+    // 店舗名: 照合内の売上 → 受領 → 販売台帳 の順に、店舗コードごとに分かっている名前を使う
+    const sn = new Map();
+    for (const x of l.sales) if (x.store && x.store_name && !sn.has(x.store)) sn.set(x.store, x.store_name);
+    for (const x of l.receipt) if (x.store && x.store_name && !sn.has(x.store)) sn.set(x.store, x.store_name);
+    for (const [k, v] of led) if (!sn.has(k)) sn.set(k, v);
     const rows = aggregateKeys(l, v.keys, null, v.full);
     for (const row of rows) {
       const k = row.key, s = row.srow, r = row.rrow;
-      const sname = (s && s.sname) || (r && r.sname) || (k.length > 1 && view === 'store' ? sn.get(k[1]) : '') || '';
+      const sname = (view === 'store' ? sn.get(k[1]) : '') || (s && s.sname) || (r && r.sname) || '';
       if (view === 'day') row.cells = [fmtDate(k[0])];
       else if (view === 'store') row.cells = [fmtDate(k[0]), k[1], sname];
       else if (view === 'item') row.cells = [fmtDate(k[0]), k[1], (s && s.iname) || (r && r.iname) || ''];
@@ -404,7 +409,7 @@
         const sd = s ? md(s.dates) : '', rd = r ? md(r.dates) : '';
         const dates = s && r && sd !== rd ? `売上 ${sd} / 受領 ${rd}` : (sd || rd);
         const stores = [...new Set([...(s ? s.stores : []), ...(r ? r.stores : [])])].sort();
-        const nm = stores.length === 1 ? ((s && s.sname) || (r && r.sname) || sn.get(stores[0]) || '') : stores.map(x => sn.get(x) || '').filter(Boolean).join('、');
+        const nm = stores.map(x => sn.get(x) || '').filter(Boolean).join('、') || (s && s.sname) || (r && r.sname) || '';
         row.cells = [k[0], dates, stores.join('、'), nm];
       }
       row.k1 = row.cells[0];

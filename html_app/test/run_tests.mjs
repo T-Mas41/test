@@ -57,6 +57,15 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.equal(slip['7227302'].judge, 'ok'); assert.ok(slip['7227302'].k2.includes('売上 2026/11/09 / 受領 2026/11/08'));
   assert.equal(slip['7227290'].judge, 'sonly'); assert.equal(slip['7227295'].judge, 'ronly');
   assert.deepEqual(slip['7227295'].cells, ['7227295', '2026/11/07', '20005561', '松本店']);
+  // 店舗名がその伝票の行に無くても、同じ照合内の同じ店舗の行から補う
+  {
+    const l = await RM.db.get('lines', id);
+    for (const x of l.sales.concat(l.receipt)) if (x.order_no === '7227290' || x.order_no === '7227295') x.store_name = '';
+    await RM.db.put('lines', l); RM._cache = null;
+    const sl = Object.fromEntries((await RM.aggregate(id, 'slip')).map(r => [r.k1, r]));
+    assert.equal(sl['7227290'].cells[3], '松本店');
+    assert.equal(sl['7227295'].cells[3], '松本店');
+  }
   assert.equal(slip['7227400'].judge, 'ok'); assert.equal(slip['7218832'].judge, 'ok');
   const day = Object.fromEntries((await RM.aggregate(id, 'day')).map(r => [r.key[0], r]));
   assert.equal(day['2026-11-08'].judge, 'ronly'); assert.equal(day['2026-11-09'].judge, 'sonly');

@@ -253,17 +253,17 @@ ${m.errors.length ? `<div class="sub">エラーの行は照合の対象から除
     <button type="submit" class="btn btn-s">表示</button>
     <span class="legend"><span class="b b-diff">差異あり</span><span class="b b-s">自社のみ</span><span class="b b-r">受領のみ</span><span class="b b-ok">一致</span></span>
   </form>
-  <div class="inner"><table class="tbl compact">
+  <div class="inner"><div class="tblscroll"><table class="tbl compact sticky">
     <thead><tr>${V.heads.map(x => `<th>${x}</th>`).join('')}
-      ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
+      ${[['gs', '売上'], ['gr', '受領'], ['gd', '差異']].map(([c, g]) => ms.map(x => `<th class="${c} n${x.key === 'amt' ? ' amt' : ''}">${g}${ms.length > 1 ? '<br>' : ' '}${x.label}</th>`).join('')).join('')}
       <th>判定</th></tr></thead>
     <tbody>${rows.map(r => `<tr class="${r.row_cls} js-conf" data-id="${id}" data-view="${view}" data-key="${h(r.key_str)}">
       <td><a href="${base}/detail${qs({ view, key: r.key_str })}" title="明細を表示">${h(r.cells[0])}</a></td>${r.cells.slice(1).map(c => `<td>${h(c)}</td>`).join('')}
-      ${[r.s, r.r].map(tr => ms.map(x => tr ? `<td class="n">${fmtM(x, tr)}</td>` : '<td class="n zero">—</td>').join('')).join('')}
-      ${ms.map(x => `<td class="n">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
+      ${[['as', r.s], ['ar', r.r]].map(([c, tr]) => ms.map(x => tr ? `<td class="n${x.key === 'amt' ? ' amt ' + c : ''}">${fmtM(x, tr)}</td>` : `<td class="n zero${x.key === 'amt' ? ' amt ' + c : ''}">—</td>`).join('')).join('')}
+      ${ms.map(x => `<td class="n${x.key === 'amt' ? ' amt ad' : ''}">${dcell(FMT[x.key], r.d[x.idx])}</td>`).join('')}
       <td><span class="b ${r.badge}" title="${h(r.judge_label)}">${r.judge_short}</span></td>
 </tr>`).join('') ||
-      `<tr><td colspan="${V.heads.length + ms.length * 3 + 1}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table>
+      `<tr><td colspan="${V.heads.length + ms.length * 3 + 1}" class="zero" style="text-align:center;padding:24px">条件に合う行はありません。</td></tr>`}</tbody></table></div>
     ${pager(page, pages, total, href)}
     <p class="note" style="margin-top:8px">${V.k1}をクリックすると明細を表示します。差異の確認済み・コメントは明細画面で入力します。差異 = 売上 − 受領。</p></div>`;
     } else {

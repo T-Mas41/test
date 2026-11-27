@@ -164,3 +164,15 @@ details>summary{list-style:none}details>summary::-webkit-details-marker{display:
 .tcard.is-ok{background:#EFFAF3;border-color:#BFE3CC}.tcard.is-ok .k,.tcard.is-ok .v,.tcard.is-ok .d{color:#1B6236}
 @media (max-width:900px){.tcards{grid-template-columns:1fr}}
 .tbl.compact th.n{line-height:1.3}
+
+/* 照合結果: 見出しを固定(表の中でスクロール) */
+.tblscroll{max-height:calc(100vh - 170px);min-height:240px;overflow:auto;border-radius:12px;border:1px solid var(--line2)}
+.tbl.sticky thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--line)}
+/* 照合結果: 売上・受領・差異の金額を目立たせる */
+.tbl td.amt{font-size:14px;font-weight:700;color:#25233A}
+.tbl td.amt.as{box-shadow:inset 3px 0 0 #C9D8FF}
+.tbl td.amt.ar{box-shadow:inset 3px 0 0 #FFD9BF}
+.tbl td.amt.ad{box-shadow:inset 3px 0 0 #D9CCFF}
+.tbl th.amt{font-size:13.5px;color:#25233A}
+.tbl th.gs.amt{background:#E3ECFF}.tbl th.gr.amt{background:#FFEBDD}.tbl th.gd.amt{background:#ECE5FF}
+.tbl td.amt.zero{color:#A29EB4;font-weight:400}
