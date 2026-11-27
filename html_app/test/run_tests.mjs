@@ -180,7 +180,10 @@ await test('layout from sample (header on row 3, named sheet)', async () => {
   const buf = new Uint8Array(await blob.arrayBuffer());
   const id = await RM.createLayoutFromSample({ name: 'K社', file_type: 'excel', encoding: 'cp932', delimiter: ',', sheet_name: '明細', header_row: 3, data_start_row: 4 }, 'k.xlsx', buf);
   const settings = { name: 'K社', file_type: 'excel', encoding: 'cp932', delimiter: ',', sheet_name: '明細', header_row: 3, data_start_row: 4 };
-  let errs = await RM.saveLayout(id, settings, { 1: 'tdate', 2: 'order_no' }, {});
+  // 見出し名から推測された役割(納品日→取引日付、発注番号→注文番号、JAN→商品コード、数量、金額)
+  const auto = Object.fromEntries((await RM.db.get('layouts', id)).columns.filter(c => c.role).map(c => [c.header, c.role]));
+  assert.deepEqual(auto, { '納品日': 'tdate', '発注番号': 'order_no', 'JAN': 'partner_code', '品名': 'name', '数量': 'qty', '金額': 'amt' });
+  let errs = await RM.saveLayout(id, settings, { 1: 'tdate', 2: 'order_no', 3: '' }, {});
   assert.ok(errs.some(e => e.includes('相手先商品コード')));
   errs = await RM.saveLayout(id, settings, { 1: 'tdate', 2: 'order_no', 3: 'partner_code', 4: 'name', 5: 'qty', 6: 'amt' }, {});
   assert.deepEqual(errs, []);

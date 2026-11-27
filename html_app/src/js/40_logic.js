@@ -148,6 +148,30 @@
     '受領数量(総バラ)': 'qty', '受領数量（バラ）': 'qty', '受領重量': 'wt', '店舗コード': 'store', '店舗略称': 'store_name',
     '販売先コード': 'cust', '相手先商品名カナ': 'name', '商品名': 'name', '受領単価': 'unit_price', '原単価': 'unit_price',
   };
+  // 見出し名の言い回しから役割を推測(完全一致で決まらない列に使う。上から順に優先)
+  const SUGGEST_RE = [
+    ['tdate', /(取引|納品|計上|伝票|受領|検収|出荷)?(日付|日)$|年月日/],
+    ['order_no', /(注文|発注|伝票|取引)(番号|No|NO|№|ＮＯ)/],
+    ['partner_code', /JAN|ＪＡＮ|GTIN|品番|(相手先|得意先|取引先)?商品(コード|CD|ｺｰﾄﾞ)/],
+    ['amt', /^(?!.*単価).*(金額|価額)/],
+    ['qty', /数量|個数|ケース数|バラ数/],
+    ['wt', /重量|重さ|kg|ＫＧ/i],
+    ['store_name', /(店舗|店|納品先)(名|名称|略称)/],
+    ['store', /(店舗|店|納品先)(コード|CD|番号|No)/],
+    ['name', /(商品|品)(名|名称)|品名/],
+    ['unit_price', /単価/],
+  ];
+  function suggestRoles(header) {
+    const used = new Set(), map = {};
+    header.forEach((h, i) => { const r = SUGGEST[h]; if (r && !used.has(r)) { map[i + 1] = r; used.add(r); } });
+    for (const [role, re] of SUGGEST_RE) {
+      if (used.has(role)) continue;
+      const i = header.findIndex((h, j) => !map[j + 1] && h && re.test(h));
+      if (i >= 0) { map[i + 1] = role; used.add(role); }
+    }
+    return map;
+  }
+  RM.suggestRoles = suggestRoles;
   RM.STANDARD_MAP = { 2: 'tdate', 3: 'store', 4: 'store_name', 5: 'order_no', 7: 'unit_price', 8: 'amt', 11: 'cust', 14: 'partner_code', 15: 'name', 21: 'qty', 22: 'wt' };
   RM.BMS_MAP = { 71: 'tdate', 29: 'store', 31: 'store_name', 22: 'order_no', 113: 'partner_code', 117: 'name', 146: 'unit_price', 147: 'amt', 163: 'qty', 165: 'wt' };
 
@@ -181,8 +205,7 @@
   }
   RM.createLayoutFromSample = async (settings, fileName, buf) => {
     const { header, samples } = await readSample(buf, settings);
-    const used = new Set(), map = {};
-    header.forEach((h, i) => { const r = SUGGEST[h]; if (r && !used.has(r)) { map[i + 1] = r; used.add(r); } });
+    const map = suggestRoles(header);
     const lay = newLayout(settings.name, false, settings.file_type, settings.encoding, settings.delimiter, settings.sheet_name, settings.header_row, settings.data_start_row, header, map);
     lay.sample_file = fileName; lay.sample_rows = samples;
     return RM.db.put('layouts', lay);

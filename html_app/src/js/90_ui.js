@@ -418,15 +418,19 @@ ${head('受領レイアウト・得意先割当', '得意先ごとの受領デ�
   async function pageLayoutEdit(id, q) {
     const l = await RM.db.get('layouts', id);
     if (!l) return { redirect: '/layouts', flash: { err: 'レイアウトが見つかりません。' } };
-    const all = q.get('all') === '1', used = l.columns.filter(c => c.role).map(c => c.role);
-    const problems = RM.validateRoles(l.columns), pv = RM.previewLayout(l), usedRoles = RM.ROLES.filter(r => used.includes(r[0]));
+    const used = l.columns.filter(c => c.role).map(c => c.role);
+    const missing = RM.ROLES.filter(r => r[2] && !used.includes(r[0]));
+    // 必須の役割が未設定のうちは、最初から全列を表示する
+    const all = q.get('all') === '1' || (q.get('all') !== '0' && missing.length > 0);
+    const problems = RM.validateRoles(l.columns).filter(p => !p.startsWith('必須')), pv = RM.previewLayout(l), usedRoles = RM.ROLES.filter(r => used.includes(r[0]));
     return { nav: 'layouts', title: '受領レイアウト編集', html: `
 ${head(`受領レイアウト編集:${h(l.name)}${l.is_standard ? ' <span class="b b-std">標準</span>' : ''}`, '各列を照合で何として使うか(役割)を設定します', '', '<a href="#/layouts" class="back">← 受領レイアウト一覧</a>')}
 <form data-form="layout-save" data-id="${id}" style="display:flex;flex-direction:column;gap:18px">
 <section class="card"><h2>1. ファイル形式</h2><div class="filters">${fileFields(l, false)}</div>
   <div class="sub">サンプル:${h(l.sample_file || '(初期登録のため見出しのみ)')}(${l.columns.length}列)</div></section>
-<section class="card"><div class="row"><h2>2. 項目の役割</h2><div class="right"><a class="btn btn-s" href="#/layout/${id}${all ? '' : '?all=1'}">${all ? '役割を設定した列だけ表示' : 'すべての列を表示'}</a></div></div>
+<section class="card"><div class="row"><h2>2. 項目の役割</h2><div class="right"><a class="btn btn-s" href="#/layout/${id}${all ? '?all=0' : '?all=1'}">${all ? '役割を設定した列だけ表示' : 'すべての列を表示'}</a></div></div>
   <div class="row" style="gap:8px;font-size:13px"><span class="sub">必須の役割:</span>${RM.ROLES.filter(r => r[2]).map(([k, lb]) => `<span class="chip ${used.includes(k) ? 'chip-ok' : 'chip-ng'}">${used.includes(k) ? '✓' : '未設定'} ${lb}</span>`).join('')}</div>
+  ${missing.length ? `<div class="msg msg-warn">下の表で、各列の「役割」を選んで<strong>保存</strong>してください。まだ設定されていない必須の役割:<strong>${missing.map(r => r[1]).join('・')}</strong>(見出し名から推測できた列は、あらかじめ設定してあります)</div>` : ''}
   ${problems.map(p => `<div class="msg msg-err">${h(p)}</div>`).join('')}
   <div class="tblwrap"><table class="tbl"><thead><tr><th class="n">列</th><th>見出し名</th><th>サンプル値(1行目)</th><th>役割</th><th>日付書式</th></tr></thead><tbody>
   ${l.columns.filter(c => all || c.role).map(c => `<tr class="${c.role ? 'used' : ''}"><td class="n">${c.col_no}</td><td>${h(c.header)}</td><td>${h((l.sample_rows[0] || [])[c.col_no - 1] || '')}</td>
