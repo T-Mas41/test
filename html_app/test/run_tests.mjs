@@ -74,13 +74,13 @@ await test('full flow (same expectations as Python version)', async () => {
   assert.equal(item['2026-11-01|[未変換]4958857043977'].cells[2], 'FD ﾁｷﾝﾊﾆﾏｽﾄﾙﾃｨｰﾔ');  // 未変換は受領の品名
   assert.equal(item['2026-11-01|000510012'].cells[2], 'チキンハニーマスタードトルティーヤ');
   assert.equal(item['2026-11-06|000283223'].judge, 'diff');                     // 識別コード9桁・複数候補は先頭
-  assert.equal(item['2026-11-06|000283223'].judge_label, '差異あり(数量・重量・金額)');
+  assert.equal(item['2026-11-06|000283223'].judge_label, '差異あり');
   const store = Object.fromEntries((await RM.aggregate(id, 'store')).map(r => [r.key_str, r]));
   assert.equal(store['2026-11-04|20005552'].judge, 'diff');
   assert.deepEqual(store['2026-11-04|20005552'].cells, ['2026/11/04', '20005552', '長野店']);
   // 日別・日別店別・伝票別は金額だけで判定
   assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 0 }, false).judge, 'ok');
-  assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 0 }, true).judge, 'diff');
+  assert.equal(RM.compare({ a: 100, q: 1000, w: 0 }, { a: 100, q: 2000, w: 500 }, true).judge, 'ok');  // 判定は金額のみ
   assert.deepEqual(new Set((await RM.warnings(id)).map(w => w.conv_status)), new Set(['none', 'multi']));
   const cnt = await RM.counts(id);
   assert.deepEqual(cnt, { day: 4, store: 4, slip: 4, item: 6, warn: 2 });

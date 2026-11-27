@@ -375,11 +375,10 @@
   function compare(s, r, full = true) {
     const S = s ? [s.a, s.q, s.w] : [0, 0, 0], R = r ? [r.a, r.q, r.w] : [0, 0, 0];
     const d = [S[0] - R[0], S[1] - R[1], S[2] - R[2]];
-    const diff = full ? d.some(v => v !== 0) : d[0] !== 0;
-    const judge = !s ? 'ronly' : !r ? 'sonly' : (diff ? 'diff' : 'ok');
-    const items = full ? ['数量', '重量', '金額'].filter((_, i) => [d[1], d[2], d[0]][i] !== 0) : [];
+    void full;  // 差異のあり・なしは、どの切り口でも金額だけで判定する(数量・重量は表示のみ)
+    const judge = !s ? 'ronly' : !r ? 'sonly' : (d[0] !== 0 ? 'diff' : 'ok');
     const [label, badge, rowCls] = RM.JUDGE[judge];
-    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: judge === 'diff' && items.length ? `差異あり(${items.join('・')})` : label,
+    return { s: s ? S : null, r: r ? R : null, d, judge, judge_label: label,
       judge_short: label, badge, row_cls: rowCls, ok: judge === 'ok' };
   }
   RM.compare = compare;
@@ -481,6 +480,8 @@
     ? [{ key: 'qty', label: '数量', idx: 1, fmt: 2 }, { key: 'wt', label: '重量', idx: 2, fmt: 3 }, { key: 'amt', label: '金額', idx: 0, fmt: 1 }]
     : [{ key: 'amt', label: '金額', idx: 0, fmt: 1 }];
   const mval = (arr, m) => (m.idx === 0 ? arr[0] : arr[m.idx] / 1000);
+  // 数量は整数なら小数点を付けない書式(金額と同じ #,##0)にする
+  const qfmt = (m, v) => (m.key === 'qty' && Number.isInteger(v) ? 1 : m.fmt);
 
   RM.buildReport = async id => {
     const m = await RM.getMatch(id), t = await RM.totals(id), cnt = await RM.counts(id);
@@ -509,20 +510,22 @@
       const ms = RM.measures(view);
       const head = v.heads.concat(...['売上', '受領', '差異'].map(g => ms.map(x => `${g} ${x.label}`)), ['判定']);
       const rows = top(`${v.label}の照合結果(差異 = 売上 − 受領)`);
-      rows.push(head.map(H));
+      // 見出しの色: キー列・判定=紫、売上=青、受領=オレンジ、差異=濃い灰紫
+      rows.push(v.heads.map(H).concat(...[11, 12, 13].map(k => ms.map(x => ({ v: '', s: st(0, 0, k) }))), [H('判定')]));
+      head.forEach((t, i) => { rows[rows.length - 1][i].v = t; });
       const data = await RM.aggregate(id, view);
       const tot = { s: [0, 0, 0], r: [0, 0, 0], d: [0, 0, 0] };
       for (const r of data) {
         const f = FILL[r.judge] || 0, out = r.cells.map((c, i) => C((r.tips && r.tips[i]) || c, f));
-        for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, x.fmt) : C(null, f));
-        out.push(C(v.full ? r.judge_label : r.judge_short, f));
+        for (const tr of [r.s, r.r, r.d]) for (const x of ms) out.push(tr ? C(mval(tr, x), f, qfmt(x, mval(tr, x))) : C(null, f));
+        out.push(C(r.judge_short, f));
         rows.push(out);
         for (let i = 0; i < 3; i++) { tot.s[i] += r.s ? r.s[i] : 0; tot.r[i] += r.r ? r.r[i] : 0; tot.d[i] += r.d[i]; }
       }
       const hr = 4, last = hr + data.length;
       const totRow = [{ v: `合計(${data.length.toLocaleString()}件)`, s: st(0, 0, 8) }];
       for (let i = 1; i < v.heads.length; i++) totRow.push({ v: '', s: st(0, 0, 8) });
-      for (const arr of [tot.s, tot.r, tot.d]) for (const x of ms) totRow.push({ v: mval(arr, x), s: st(0, x.fmt, 8) });
+      for (const arr of [tot.s, tot.r, tot.d]) for (const x of ms) totRow.push({ v: mval(arr, x), s: st(0, qfmt(x, mval(arr, x)), 8) });
       totRow.push({ v: tot.d[0] === 0 ? '一致' : '差異あり', s: st(0, 0, 8) });
       rows.push(totRow);
       const kw = { day: [14], store: [14, 12, 20], slip: [16, 14, 12, 20], item: [14, 12, 30] }[view];
@@ -534,7 +537,7 @@
     for (const w of await RM.warnings(id)) {
       const f = w.conv_status === 'none' ? 3 : 1;
       wrows.push([C(w.conv_status === 'none' ? '変換不可' : '複数候補', f), C(fmtDate(w.tdate), f), C(w.order_no, f), C(`${w.store} ${w.store_name || (await storeNames(m.cust)).get(w.store) || ''}`.trim(), f), C(w.partner_code, f), C(w.name, f),
-        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
+        C(w.conv_status === 'none' ? '' : w.own_code, f), C(w.conv_note, f), C(w.qty / 1000, f, Number.isInteger(w.qty / 1000) ? 1 : 2), C(w.wt / 1000, f, 3), C(w.amt, f, 1), C(w.row_no, f)]);
     }
     sheets.push({ name: '変換警告', freeze: true, freezeRows: 4, filter: true, filterRef: `A4:L${wrows.length}`, rows: wrows, widths: [10, 12, 16, 18, 18, 28, 22, 50, 10, 11, 12, 12] });
     return RM.writeXlsx(sheets);
